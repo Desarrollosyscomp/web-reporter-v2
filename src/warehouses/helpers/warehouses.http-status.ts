@@ -6,7 +6,6 @@ const warehousesStatusMap: Record<string, Record<number, number>> = {
         0: HttpStatus.CONFLICT,
         1: HttpStatus.OK,
     },
-
 }
 
 export const getHttpStatusWarehouses = (

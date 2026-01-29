@@ -8,7 +8,8 @@ export class WarehousesService {
   public async findAll(): Promise<TServiceResponse> {
     const connection = await this.db.getConnection();
     try {
-      const [rows] = await connection.query(`SELECT idalmacen, nomalmacen FROM almacenes WHERE activo = 1`);
+      const sql = `SELECT idalmacen, nomalmacen FROM almacenes WHERE activo = 1`;
+      const [rows] = await connection.query(sql);
       return { data: { warehouses: rows }, error: false };
     } catch (error) {
       return { error: true, data: error };

@@ -2,6 +2,7 @@ import { TUseCaseResponse } from "../../local-responses/response-types/use-case-
 import { WarehousesService } from "../warehouses.service";
 import { UseCaseResponse } from "../../local-responses/classes/use-case-response";
 
+
 export class GetWarehousesUseCase {
 
     public constructor(private readonly warehouseService: WarehousesService) { }
@@ -18,4 +19,5 @@ export class GetWarehousesUseCase {
     private defineStatus(error: boolean | undefined): number {
         return error ? 0 : 1;
     }
+
 }

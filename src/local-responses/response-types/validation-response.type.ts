@@ -1,4 +1,4 @@
-export type ValidationResponseInterface = {
+export type TValidationResponseType = {
   success: boolean;
   data: any;
 }

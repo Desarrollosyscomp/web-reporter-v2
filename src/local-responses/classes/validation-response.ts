@@ -1,10 +1,10 @@
-import { ValidationDataInterface } from '../response-types/validation-data.type';
-import { ValidationResponseInterface } from '../response-types/validation-response.type';
+import { TValidationDataType } from '../response-types/validation-data.type';
+import { TValidationResponseType } from '../response-types/validation-response.type';
 
-export class ValidationResponse implements ValidationResponseInterface {
+export class ValidationResponse implements TValidationResponseType {
     success: boolean = true;
-    data: ValidationDataInterface;
-    public constructor(success: boolean, data: ValidationDataInterface) {
+    data: TValidationDataType;
+    public constructor(success: boolean, data: TValidationDataType) {
         this.setSuccess(success);
         this.setData(data);
     }
@@ -14,10 +14,10 @@ export class ValidationResponse implements ValidationResponseInterface {
     public getSuccess() {
         return this.success;
     }
-    public setData(data: ValidationDataInterface) {
+    public setData(data: TValidationDataType) {
         this.data = data;
     }
-    public getData(): ValidationDataInterface {
+    public getData(): TValidationDataType {
         return this.data;
     }
     public getStatus() {
