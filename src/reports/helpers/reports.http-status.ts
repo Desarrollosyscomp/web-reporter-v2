@@ -5,6 +5,14 @@ const reportsStatusMap: Record<string, Record<number, number>> = {
         0: HttpStatus.CONFLICT,
         1: HttpStatus.OK,
     },
+    detailSalesDayByWarehouse: {
+        0: HttpStatus.CONFLICT,
+        1: HttpStatus.OK,
+    },
+    invoiceDetail: {
+        0: HttpStatus.CONFLICT,
+        1: HttpStatus.OK,
+    }
 }
 
 export const getHttpStatusReports = (controller: string, status: number): number => {

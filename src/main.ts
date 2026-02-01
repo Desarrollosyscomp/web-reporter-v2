@@ -5,7 +5,15 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule,{cors:true});
+  const app = await NestFactory.create(AppModule);
+  app.enableCors({
+    origin: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
+  });
+  const server = app.getHttpServer();
+  server.setTimeout?.(120000);
+
   const config = new DocumentBuilder()
     .setTitle('Web Reports API')
     .setDescription('API del sistema reportes web')

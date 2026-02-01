@@ -1,4 +1,5 @@
 import { TLocalResponse } from '../response-types/local-response.type';
+import { TRawPaginatedData } from '../response-types/raw-paginated-data';
 import { TUseCaseResponse } from '../response-types/use-case-response.type';
 import { PaginatorResponse } from './paginator-response';
 
@@ -11,7 +12,7 @@ type UseCaseParams = {
 
 export class UseCaseResponse<T = any> implements TLocalResponse<T> {
     public data: T;
-    public status: number ;
+    public status: number;
     public error: boolean;
     public limit: number;
     public constructor(params: UseCaseParams) {
@@ -19,7 +20,7 @@ export class UseCaseResponse<T = any> implements TLocalResponse<T> {
         if (params.status != undefined) {
             this.setStatus(params.status);
         }
-        this.setStatus(params.status || 200 );
+        this.setStatus(params.status || 200);
         this.setError(params.error);
         if (params.limit != undefined) {
             this.setLimit(params.limit);
@@ -43,7 +44,7 @@ export class UseCaseResponse<T = any> implements TLocalResponse<T> {
     public getData(): T {
         return this.data;
     }
-   public setStatus(status: number): void {
+    public setStatus(status: number): void {
         this.status = status;
     }
     public getStatus(): number {
@@ -70,13 +71,26 @@ export class UseCaseResponse<T = any> implements TLocalResponse<T> {
         };
     }
     public parsePaginatorResponse(): TUseCaseResponse {
-        const data = this.getData();
+        const data = this.getData() as TRawPaginatedData;;
         const limit = this.getLimit();
         const status = this.getStatus();
-        const paginator = new PaginatorResponse([data[0], data[1]], limit);
+        //const paginator = new PaginatorResponse([data[0], data[1]], limit);
+        const paginator = new PaginatorResponse(
+            [data.list, data.count],
+            limit,
+        );
+
+        // return {
+        //     status,
+        //     data: paginator.getPaginationResponse(),
+        // };
+
         return {
             status,
-            data: paginator.getPaginationResponse(),
+            data: {
+                ...paginator.getPaginationResponse(),
+                ...(data.summary && { summary: data.summary }),
+            },
         };
     }
 }

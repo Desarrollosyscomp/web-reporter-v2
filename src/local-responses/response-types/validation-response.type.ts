@@ -1,4 +1,4 @@
 export type TValidationResponseType = {
-  success: boolean;
+  success: boolean | undefined | null;
   data: any;
 }

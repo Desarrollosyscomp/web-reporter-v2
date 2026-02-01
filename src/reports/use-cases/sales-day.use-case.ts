@@ -15,10 +15,10 @@ export class SalesDayUseCase {
     public async main(init_date: string): Promise<TUseCaseResponse> {
         const { data, error } = await this.reportsService.salesDay(init_date);
 
-        const { summary } = this.parseResponse(data.sales);
+        const { summary } = this.addValues(data.sales);
         const status = this.defineStatus(error || false);
         return new UseCaseResponse({
-            data: { sales: data, summary },
+            data: { sales: data.sales, summary },
             error,
             status
         }).getResponse();
@@ -28,8 +28,8 @@ export class SalesDayUseCase {
         return error ? 0 : 1;
     }
 
-    private parseResponse(data: Array<any>): { summary: TSummary } {
-
+    private addValues(data: Array<any>): { summary: TSummary } {
+        
         let summary: TSummary = {
             totalSales: 0,
             totalProducts: 0,

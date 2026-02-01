@@ -1,4 +1,4 @@
 export type TValidationDataType = {
   message: string;
-  status?: number;
+  status?: number | undefined | null;
 }

@@ -4,7 +4,9 @@ export const databaseConfig = {
     user: process.env.DB_USERNAME ?? 'root',
     password: process.env.DB_PASSWORD ?? '',
     database: process.env.DB_DATABASE ?? 'test_database',
-    connectionLimit: 10,
+    connectionLimit: 20,
     waitForConnections: true,
     queueLimit: 0,
+    connectLimit: 10000,
+    acquireTimeout: 10000,
 };
