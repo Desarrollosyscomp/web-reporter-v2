@@ -2,11 +2,15 @@ import { Controller, Get, Param, Delete, Res, HttpException, Query, ParseIntPipe
 import type { Response } from 'express';
 import { HttpResponse } from '../local-responses/classes/http-response';
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { detailSalesDayByWarehouseUseCaseCompositor, invoiceDetailUseCaseCompositor, salesDayUseCaseCompositor } from './compositors/use-case.compositors';
+import {
+    cumulativeSalesUseCaseCompositor, detailSalesDayByWarehouseUseCaseCompositor,
+    invoiceDetailUseCaseCompositor, salesDayUseCaseCompositor
+} from './compositors/use-case.compositors';
 import { getHttpStatusReports } from './helpers/reports.http-status';
 import { invoiceDetailValidatorCompositor, salesDayValidatorCompositor } from './compositors/validator.compositor';
 import { getValidationHttpStatus } from './helpers/reports-validator.http-status';
 import { PaginateReportDto } from './dto/paginate-report.dto';
+import { GetReportDto } from './dto/get-report.dto';
 
 @ApiTags('Reports')
 @Controller('reports')
@@ -53,8 +57,8 @@ export class ReportsController {
     public async detailSalesDayByWarehouse(@Res() response: Response,
         @Param('date') date: string,
         @Param('warehouse_id', ParseIntPipe) warehouse_id: number,
-        @Query() query: PaginateReportDto): Promise<Response | HttpException> {
-        const { page, limit } = query;
+        @Query() paginateReportDto: PaginateReportDto): Promise<Response | HttpException> {
+        const { page, limit } = paginateReportDto;
         const { data, status } = await detailSalesDayByWarehouseUseCaseCompositor().main(date, warehouse_id, page, limit);
         let httpStatus = getHttpStatusReports('detailSalesDayByWarehouse', status || 0);
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
@@ -88,5 +92,38 @@ export class ReportsController {
         let httpStatus = getHttpStatusReports('invoiceDetail', status || 0);
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }
+
+    @Get('cumulative-sales')
+    @ApiOperation({ summary: "Informe de ventas acumulado por fechas seleccionadas y almacenes" })
+    @ApiQuery({
+        name: 'init_date',
+        required: true,
+        type: String,
+        description: 'Fecha inicial en formato YYYYMMDD',
+        example: '20260201',
+    })
+    @ApiQuery({
+        name: 'end_date',
+        required: true,
+        type: String,
+        description: 'Fecha final en formato YYYYMMDD',
+        example: '20260202',
+    })
+    @ApiQuery({ name: 'page', required: true, example: 1 })
+    @ApiQuery({ name: 'limit', required: true, example: 10 })
+    @ApiQuery({
+        name: 'warehouse_id', required: true, example: 1,
+        description: 'Si el informe es de todos los almacenes, mandar por defecto 0 '
+    })
+    public async cumulativeSales(@Res() response: Response,
+        @Query() getReportDto: GetReportDto): Promise<Response | HttpException> {
+        const { init_date, end_date, page, limit, warehouse_id } = getReportDto;
+        const { data, status } = await cumulativeSalesUseCaseCompositor().main(init_date, end_date,
+            page, limit, warehouse_id);
+        let httpStatus = getHttpStatusReports('cumulativeSales', status || 1);
+        return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
+    }
+
+
 
 }

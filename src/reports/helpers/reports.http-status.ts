@@ -12,6 +12,10 @@ const reportsStatusMap: Record<string, Record<number, number>> = {
     invoiceDetail: {
         0: HttpStatus.CONFLICT,
         1: HttpStatus.OK,
+    },
+    cumulativeSales: {
+        0: HttpStatus.CONFLICT,
+        1: HttpStatus.OK,
     }
 }
 
