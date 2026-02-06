@@ -16,6 +16,14 @@ const reportsStatusMap: Record<string, Record<number, number>> = {
     cumulativeSales: {
         0: HttpStatus.CONFLICT,
         1: HttpStatus.OK,
+    },
+    cashCounts: {
+        0: HttpStatus.CONFLICT,
+        1: HttpStatus.OK,
+    },
+    receivablePortfolio: {
+        0: HttpStatus.CONFLICT,
+        1: HttpStatus.OK,
     }
 }
 

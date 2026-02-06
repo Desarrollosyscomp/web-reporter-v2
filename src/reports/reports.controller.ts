@@ -3,11 +3,18 @@ import type { Response } from 'express';
 import { HttpResponse } from '../local-responses/classes/http-response';
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import {
-    cumulativeSalesUseCaseCompositor, detailSalesDayByWarehouseUseCaseCompositor,
-    invoiceDetailUseCaseCompositor, salesDayUseCaseCompositor
+    cashCountsUseCaseCompositor,
+    cumulativeSalesUseCaseCompositor,
+    detailSalesDayByWarehouseUseCaseCompositor,
+    invoiceDetailUseCaseCompositor,
+    receivablePortfolioUseCaseCompositor,
+    salesDayUseCaseCompositor
 } from './compositors/use-case.compositors';
 import { getHttpStatusReports } from './helpers/reports.http-status';
-import { invoiceDetailValidatorCompositor, salesDayValidatorCompositor } from './compositors/validator.compositor';
+import {
+    cashCountsValidatorCompositor,
+    invoiceDetailValidatorCompositor, salesDayValidatorCompositor
+} from './compositors/validator.compositor';
 import { getValidationHttpStatus } from './helpers/reports-validator.http-status';
 import { PaginateReportDto } from './dto/paginate-report.dto';
 import { GetReportDto } from './dto/get-report.dto';
@@ -77,7 +84,6 @@ export class ReportsController {
             const validationData = validate.getData();
             const statusCode = validationData.status ?? 0;
             let httpStatus = getValidationHttpStatus('validateInvoiceDetail', statusCode);
-
             return response
                 .status(httpStatus)
                 .send(
@@ -124,6 +130,75 @@ export class ReportsController {
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }
 
+    @Get('cash-counts')
+    @ApiOperation({ summary: "Informe de arqueos de caja teniendo en cuenta pedidos y facturas" })
+    @ApiQuery({
+        name: 'date',
+        required: true,
+        type: String,
+        description: 'Fecha inicial en formato  ISO 8601 (YYYY-MM-DD HH:mm:ss)',
+        example: '2026-02-04 00:00:00',
+    })
+    @ApiQuery({
+        name: 'warehouse_id', required: true, example: 1,
+        description: 'Id del almacén para consultar reporte '
+    })
+    public async cashCounts(@Res() response: Response, @Query('date') date: string,
+        @Query('warehouse_id') warehouse_id: number): Promise<Response | HttpException> {
+        const validate = await cashCountsValidatorCompositor().validate(date, warehouse_id);
+        if (!validate.success) {
+            const validationData = validate.getData();
+            const statusCode = validationData.status ?? 0;
+            let httpStatus = getValidationHttpStatus('validateCashCounts', statusCode);
+            return response
+                .status(httpStatus)
+                .send(
+                    new HttpException(
+                        validationData.message || 'Validation failed',
+                        httpStatus,
+                    ),
+                );
+        }
+        const { data, status } = await cashCountsUseCaseCompositor().main(date, warehouse_id);
+        const httpStatus = getHttpStatusReports('cashCounts', status || 1);
+        return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
+    }
 
+    @Get('receivable-portfolio')
+    @ApiOperation({ summary: "Informe de cuentas por pagar de facturas y pedidos" })
+    @ApiQuery({
+        name: 'init_date',
+        required: true,
+        type: String,
+        description: 'Fecha inicial en formato YYYYMMDD',
+        example: '20260201',
+    })
+    @ApiQuery({
+        name: 'end_date',
+        required: true,
+        type: String,
+        description: 'Fecha final en formato YYYYMMDD',
+        example: '20260205',
+    })
+    @ApiQuery({ name: 'page', required: true, example: 1 })
+    @ApiQuery({ name: 'limit', required: true, example: 10 })
+    @ApiQuery({
+        name: 'warehouse_id', required: true, example: 1,
+        description: 'id del almacén para consultar reporte '
+    })
+    public async receivablePortfolio(@Res() response: Response, @Query() getReportDto: GetReportDto): Promise<Response | HttpException> {
+        const { init_date, end_date, page, limit, warehouse_id } = getReportDto;
+        const { data, status } = await receivablePortfolioUseCaseCompositor().main(init_date, end_date, page, limit, warehouse_id);
+        const httpStatus = getHttpStatusReports('receivablePortfolio', status || 1);
+        return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
+    }
+
+    // @Get('payable-portfolio')
+    // @ApiOperation({ summary: "Informe de cuentas por cobrar de compras" })
+    // @ApiParam({ name: 'date', required: true, example: '20260205' })
+    // @ApiQuery({
+    //     name: 'warehouse_id', required: true, example: 1,
+    //     description: 'Id del almacén para consultar reporte '
+    // })
 
 }
