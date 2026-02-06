@@ -409,6 +409,73 @@ export class ReportsService {
         }
     }
 
+    public async payablePortfolio(init_date: string, end_date: string,
+        page: number, limit: number, warehouse_id: number): Promise<TPaginatedServiceResponse> {
+        const connection = await this.db.getConnection();
+        try {
+            const offset = (page - 1) * limit;
+            const query = `
+                 SELECT
+                        c.idcartera,
+                        c.tipodoc,
+                        c.iddocumento,
+                        c.fechadoc,
+                        c.idtercero,
+                        t.nombres,
+                        t.apellidos,
+                        c.idalmacen,
+                        a.nomalmacen,
+                        c.valtotaldoc,
+                        IFNULL(SUM(dc.valor), 0) AS total_pagado,
+                        (c.valtotaldoc - IFNULL(SUM(dc.valor), 0)) AS saldo_pendiente
+                    FROM cartera c
+                    INNER JOIN terceros t ON t.idtercero = c.idtercero
+                    INNER JOIN almacenes a ON a.idalmacen = c.idalmacen
+                    LEFT JOIN detcartera dc ON dc.idcartera = c.idcartera
+                    WHERE
+                        c.idalmacen = ?
+                        AND c.fechadoc BETWEEN ? AND ?
+                        AND c.tipodoc IN ('COMPRA')
+                        AND c.tipocartera = 2
+                    GROUP BY c.idcartera
+                    HAVING saldo_pendiente > 0
+                    ORDER BY c.fechadoc ASC
+                    LIMIT ? OFFSET ?;
+                 `;
+            const params = [warehouse_id, init_date, end_date, limit, offset];
+            const [rows] = await connection.query(query, params);
+            const countParams = [warehouse_id, init_date, end_date];
+            const countQuery = `
+                SELECT COUNT(*) AS total
+                    FROM (
+                        SELECT
+                            c.idcartera,
+                            c.valtotaldoc
+                        FROM cartera c
+                        LEFT JOIN detcartera dc ON dc.idcartera = c.idcartera
+                        WHERE
+                            c.idalmacen = ?
+                            AND c.fechadoc BETWEEN ? AND ?
+                            AND c.tipodoc IN ('COMPRA')
+                            AND c.tipocartera = 2
+                        GROUP BY c.idcartera, c.valtotaldoc
+                        HAVING (c.valtotaldoc - IFNULL(SUM(dc.valor), 0)) > 0
+                    ) AS total_rows;
+                    `;
+            const [count] = await connection.query(countQuery, countParams);
+            return {
+                data: [rows, count[0].total],
+                error: false,
+            };
+
+        } catch (error) {
+            return { error: true, data: error.message };
+        } finally {
+
+            if (connection) this.db.release(connection);
+        }
+    }
+
 
 }
 

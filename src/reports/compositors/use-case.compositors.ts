@@ -4,6 +4,7 @@ import { CashCountsUseCase } from "../use-cases/cash-counts.use-case";
 import { CumulativeSalesUseCase } from "../use-cases/cumulative-sales.use-case";
 import { DetailSalesDayByWarehouseUseCase } from "../use-cases/detail-sales-day-by-warehouse.use-case";
 import { InvoiceDetailUseCase } from "../use-cases/invoice-detail.use-case";
+import { PayablePortfolioUseCase } from "../use-cases/payable-portfolio.use-case";
 import { ReceivablePortfolioUseCase } from "../use-cases/receivable-portfolio.use-case";
 import { SalesDayUseCase } from "../use-cases/sales-day.use-case";
 
@@ -41,4 +42,10 @@ export const receivablePortfolioUseCaseCompositor = (): ReceivablePortfolioUseCa
     const db = new MySQLAdapter();
     const service = new ReportsService(db);
     return new ReceivablePortfolioUseCase(service);
+}
+
+export const payablePortfolioUseCaseCompositor = (): PayablePortfolioUseCase => {
+    const db = new MySQLAdapter();
+    const service = new ReportsService(db);
+    return new PayablePortfolioUseCase(service);
 }
