@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Res, HttpException, Query, ParseIntPipe } from '@nestjs/common';
 import type { Response } from 'express';
 import { HttpResponse } from '../local-responses/classes/http-response';
-import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import {
     cashCountsUseCaseCompositor,
     cumulativeSalesUseCaseCompositor,
@@ -22,6 +22,7 @@ import { PaginateReportDto } from './dto/paginate-report.dto';
 import { GetReportDto } from './dto/get-report.dto';
 
 @ApiTags('Reports')
+@ApiBearerAuth()
 @Controller('reports')
 export class ReportsController {
 

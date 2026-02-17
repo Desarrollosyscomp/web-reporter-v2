@@ -1,10 +1,12 @@
 import { Controller, Get, Res, HttpException } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { getHttpStatusWarehouses } from './helpers/warehouses.http-status';
 import { HttpResponse } from '../local-responses/classes/http-response';
 import { findAllWarehousesUseCaseCompositor } from './compositors/use-case.compositor';
+
 @ApiTags('Warehouses')
+@ApiBearerAuth()
 @Controller('warehouses')
 export class WarehousesController {
 
