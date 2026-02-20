@@ -8,44 +8,39 @@ import { PayablePortfolioUseCase } from "../use-cases/payable-portfolio.use-case
 import { ReceivablePortfolioUseCase } from "../use-cases/receivable-portfolio.use-case";
 import { SalesDayUseCase } from "../use-cases/sales-day.use-case";
 
-export const salesDayUseCaseCompositor = (): SalesDayUseCase => {
-    const db = new MySQLAdapter();
+
+export const salesDayUseCaseCompositor = (req: Request): SalesDayUseCase => {
+    const db = new MySQLAdapter(req as any);
     const service = new ReportsService(db);
     return new SalesDayUseCase(service);
-}
+};
 
-export const detailSalesDayByWarehouseUseCaseCompositor = (): DetailSalesDayByWarehouseUseCase => {
-    const db = new MySQLAdapter();
-    const service = new ReportsService(db);
-    return new DetailSalesDayByWarehouseUseCase(service);
-}
+export const detailSalesDayByWarehouseUseCaseCompositor = (req: Request) =>
+    new DetailSalesDayByWarehouseUseCase(
+        new ReportsService(new MySQLAdapter(req as any))
+    );
 
-export const invoiceDetailUseCaseCompositor = (): InvoiceDetailUseCase => {
-    const db = new MySQLAdapter();
-    const service = new ReportsService(db);
-    return new InvoiceDetailUseCase(service);
-}
+export const invoiceDetailUseCaseCompositor = (req: Request) =>
+    new InvoiceDetailUseCase(
+        new ReportsService(new MySQLAdapter(req as any))
+    );
 
-export const cumulativeSalesUseCaseCompositor = (): CumulativeSalesUseCase => {
-    const db = new MySQLAdapter();
-    const service = new ReportsService(db);
-    return new CumulativeSalesUseCase(service);
-}
+export const cumulativeSalesUseCaseCompositor = (req: Request) =>
+    new CumulativeSalesUseCase(
+        new ReportsService(new MySQLAdapter(req as any))
+    );
 
-export const cashCountsUseCaseCompositor = (): CashCountsUseCase => {
-    const db = new MySQLAdapter();
-    const service = new ReportsService(db);
-    return new CashCountsUseCase(service);
-}
+export const cashCountsUseCaseCompositor = (req: Request) =>
+    new CashCountsUseCase(
+        new ReportsService(new MySQLAdapter(req as any))
+    );
 
-export const receivablePortfolioUseCaseCompositor = (): ReceivablePortfolioUseCase => {
-    const db = new MySQLAdapter();
-    const service = new ReportsService(db);
-    return new ReceivablePortfolioUseCase(service);
-}
+export const receivablePortfolioUseCaseCompositor = (req: Request) =>
+    new ReceivablePortfolioUseCase(
+        new ReportsService(new MySQLAdapter(req as any))
+    );
 
-export const payablePortfolioUseCaseCompositor = (): PayablePortfolioUseCase => {
-    const db = new MySQLAdapter();
-    const service = new ReportsService(db);
-    return new PayablePortfolioUseCase(service);
-}
+export const payablePortfolioUseCaseCompositor = (req: Request) =>
+    new PayablePortfolioUseCase(
+        new ReportsService(new MySQLAdapter(req as any))
+    );

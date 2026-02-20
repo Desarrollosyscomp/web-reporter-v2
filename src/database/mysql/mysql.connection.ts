@@ -1,23 +1,26 @@
 import { createPool, Pool } from 'mysql2/promise';
 import { databaseConfig } from '../config/database.config';
 
+type PoolKey = string;
 export class MySQLConnectionFactory {
-    private static pool: Pool;
+     private static pools: Map<PoolKey, Pool> = new Map();
 
-    public static getPool(): Pool {
-        if (!MySQLConnectionFactory.pool) {
-            MySQLConnectionFactory.pool = createPool({
-                host: databaseConfig.host,
-                port: databaseConfig.port,
-                user: databaseConfig.user,
-                password: databaseConfig.password,
-                database: databaseConfig.database,
-                connectionLimit: databaseConfig.connectionLimit,
-                waitForConnections: databaseConfig.waitForConnections,
-                queueLimit: databaseConfig.queueLimit,
-            });
-        }
+    public static getPool(host: string, database: string): Pool {
+         const key = `${host}_${database}`;
 
-        return MySQLConnectionFactory.pool;
+    if (!this.pools.has(key)) {
+      const pool = createPool({
+        host,
+        port: databaseConfig.port,
+        user: databaseConfig.user,
+        password: databaseConfig.password,
+        database,
+        connectionLimit: databaseConfig.connectionLimit,
+        waitForConnections: true,
+      });
+
+      this.pools.set(key, pool);
     }
+    return this.pools.get(key)!;
+  }
 }

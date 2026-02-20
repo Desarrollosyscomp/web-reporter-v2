@@ -5,6 +5,18 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LoggingInterceptor } from './commons/logging.interceptor';
 
+const sortPathsAlphabetically = (document: any) => {
+  const sortedPaths = Object.keys(document.paths)
+    .sort()
+    .reduce((acc, key) => {
+      acc[key] = document.paths[key];
+      return acc;
+    }, {});
+
+  document.paths = sortedPaths;
+  return document;
+};
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
@@ -23,8 +35,19 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/v1/docs', app, document);
+  let document = SwaggerModule.createDocument(app, config);
+  document = sortPathsAlphabetically(document);
+  SwaggerModule.setup('api/v1/docs', app, document, {
+    swaggerOptions: {
+      defaultModelsExpandDepth: -1,
+      defaultModelExpandDepth: 1,
+      docExpansion: 'none',
+      operationsSorter: 'alpha',
+      filter: true,
+      showRequestDuration: true,
+      persistAuthorization: true,
+    },
+  });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Res, HttpException, Query, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Param, Res, HttpException, Query, ParseIntPipe, Req } from '@nestjs/common';
 import type { Response } from 'express';
 import { HttpResponse } from '../local-responses/classes/http-response';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
@@ -35,9 +35,9 @@ export class ReportsController {
         description: 'Fecha inicial en formato YYYYMMDD',
         example: '20260108',
     })
-    public async salesDay(@Res() response: Response, @Query('init_date') init_date: string): Promise<Response | HttpException> {
+    public async salesDay(@Res() response: Response, @Req() req: Request, @Query('init_date') init_date: string): Promise<Response | HttpException> {
 
-        const validate = await salesDayValidatorCompositor().validate(init_date);
+        const validate = await salesDayValidatorCompositor(req).validate(init_date);
         if (!validate.success) {
             const validationData = validate.getData();
             const statusCode = validationData.status ?? 0;
@@ -52,7 +52,7 @@ export class ReportsController {
                     ),
                 );
         }
-        const { data, status } = await salesDayUseCaseCompositor().main(init_date);
+        const { data, status } = await salesDayUseCaseCompositor(req).main(init_date);
         let httpStatus = getHttpStatusReports('salesDay', status || 0);
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }
@@ -64,12 +64,12 @@ export class ReportsController {
     @ApiQuery({ name: 'page', required: false })
     @ApiQuery({ name: 'limit', required: false })
 
-    public async detailSalesDayByWarehouse(@Res() response: Response,
+    public async detailSalesDayByWarehouse(@Res() response: Response, @Req() req: Request,
         @Param('date') date: string,
         @Param('warehouse_id', ParseIntPipe) warehouse_id: number,
         @Query() paginateReportDto: PaginateReportDto): Promise<Response | HttpException> {
         const { page, limit } = paginateReportDto;
-        const { data, status } = await detailSalesDayByWarehouseUseCaseCompositor().main(date, warehouse_id, page, limit);
+        const { data, status } = await detailSalesDayByWarehouseUseCaseCompositor(req).main(date, warehouse_id, page, limit);
         let httpStatus = getHttpStatusReports('detailSalesDayByWarehouse', status || 0);
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }
@@ -79,10 +79,10 @@ export class ReportsController {
     @ApiParam({ name: 'warehouse_id', required: true, example: 1, type: Number })
     @ApiParam({ name: 'invoice_number', required: true, example: 500, type: Number })
 
-    public async invoiceDetail(@Res() response: Response,
+    public async invoiceDetail(@Res() response: Response, @Req() req: Request,
         @Param('warehouse_id', ParseIntPipe) warehouse_id: number,
         @Param('invoice_number', ParseIntPipe) invoice_number: number): Promise<Response | HttpException> {
-        const validate = await invoiceDetailValidatorCompositor().validate(invoice_number, warehouse_id);
+        const validate = await invoiceDetailValidatorCompositor(req).validate(invoice_number, warehouse_id);
         if (!validate.success) {
             const validationData = validate.getData();
             const statusCode = validationData.status ?? 0;
@@ -97,7 +97,7 @@ export class ReportsController {
                 );
         }
 
-        const { data, status } = await invoiceDetailUseCaseCompositor().main(warehouse_id, invoice_number);
+        const { data, status } = await invoiceDetailUseCaseCompositor(req).main(warehouse_id, invoice_number);
         let httpStatus = getHttpStatusReports('invoiceDetail', status || 0);
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }
@@ -125,9 +125,9 @@ export class ReportsController {
         description: 'Si el informe es de todos los almacenes, mandar por defecto 0 '
     })
     public async cumulativeSales(@Res() response: Response,
-        @Query() getReportDto: GetReportDto): Promise<Response | HttpException> {
+        @Query() getReportDto: GetReportDto, @Req() req: Request): Promise<Response | HttpException> {
         const { init_date, end_date, page, limit, warehouse_id } = getReportDto;
-        const { data, status } = await cumulativeSalesUseCaseCompositor().main(init_date, end_date,
+        const { data, status } = await cumulativeSalesUseCaseCompositor(req).main(init_date, end_date,
             page, limit, warehouse_id);
         let httpStatus = getHttpStatusReports('cumulativeSales', status || 1);
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
@@ -147,8 +147,8 @@ export class ReportsController {
         description: 'Id del almacén para consultar reporte '
     })
     public async cashCounts(@Res() response: Response, @Query('date') date: string,
-        @Query('warehouse_id') warehouse_id: number): Promise<Response | HttpException> {
-        const validate = await cashCountsValidatorCompositor().validate(date, warehouse_id);
+        @Query('warehouse_id') warehouse_id: number, @Req() req: Request): Promise<Response | HttpException> {
+        const validate = await cashCountsValidatorCompositor(req).validate(date, warehouse_id);
         if (!validate.success) {
             const validationData = validate.getData();
             const statusCode = validationData.status ?? 0;
@@ -162,7 +162,7 @@ export class ReportsController {
                     ),
                 );
         }
-        const { data, status } = await cashCountsUseCaseCompositor().main(date, warehouse_id);
+        const { data, status } = await cashCountsUseCaseCompositor(req).main(date, warehouse_id);
         const httpStatus = getHttpStatusReports('cashCounts', status || 1);
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }
@@ -189,9 +189,10 @@ export class ReportsController {
         name: 'warehouse_id', required: true, example: 1,
         description: 'id del almacén para consultar reporte '
     })
-    public async receivablePortfolio(@Res() response: Response, @Query() getReportDto: GetReportDto): Promise<Response | HttpException> {
+    public async receivablePortfolio(@Res() response: Response,
+        @Query() getReportDto: GetReportDto, @Req() req: Request): Promise<Response | HttpException> {
         const { init_date, end_date, page, limit, warehouse_id } = getReportDto;
-        const { data, status } = await receivablePortfolioUseCaseCompositor().main(init_date, end_date, page, limit, warehouse_id);
+        const { data, status } = await receivablePortfolioUseCaseCompositor(req).main(init_date, end_date, page, limit, warehouse_id);
         const httpStatus = getHttpStatusReports('receivablePortfolio', status || 1);
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }
@@ -218,10 +219,11 @@ export class ReportsController {
         name: 'warehouse_id', required: true, example: 1,
         description: 'id del almacén para consultar reporte '
     })
-    public async payablePortfolio(@Res() response: Response, @Query() getReportDto: GetReportDto): Promise<Response | HttpException> {
-
+    public async payablePortfolio(@Res() response: Response,
+        @Query() getReportDto: GetReportDto,
+        @Req() req: Request): Promise<Response | HttpException> {
         const { init_date, end_date, page, limit, warehouse_id } = getReportDto;
-        const { data, status } = await payablePortfolioUseCaseCompositor().main(init_date, end_date, page, limit, warehouse_id);
+        const { data, status } = await payablePortfolioUseCaseCompositor(req).main(init_date, end_date, page, limit, warehouse_id);
         const httpStatus = getHttpStatusReports('payablePortfolio', status || 1);
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }
