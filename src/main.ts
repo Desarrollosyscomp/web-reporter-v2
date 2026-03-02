@@ -4,7 +4,9 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LoggingInterceptor } from './commons/logging.interceptor';
-
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+export let globalCache: Cache;
 const sortPathsAlphabetically = (document: any) => {
   const sortedPaths = Object.keys(document.paths)
     .sort()
@@ -25,6 +27,7 @@ async function bootstrap() {
     credentials: true,
   });
   app.useGlobalInterceptors(new LoggingInterceptor());
+  globalCache = app.get<Cache>(CACHE_MANAGER);
   const server = app.getHttpServer();
   server.setTimeout?.(120000);
 
@@ -57,8 +60,8 @@ async function bootstrap() {
   );
   const logger = new Logger('Main');
   const configService = app.get(ConfigService);
-  const port = configService.get<number>('PORT', 3200);
-  await app.listen(process.env.PORT || 3200);
+  const port = configService.get<number>('API_PORT', 3200);
+  await app.listen(process.env.API_PORT || 3200);
   logger.log('server is listening on port:' + port)
 }
 bootstrap();

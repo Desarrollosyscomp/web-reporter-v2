@@ -28,6 +28,10 @@ const reportsStatusMap: Record<string, Record<number, number>> = {
     payablePortfolio: {
         0: HttpStatus.CONFLICT,
         1: HttpStatus.OK,
+    },
+    inventory: {
+        0: HttpStatus.CONFLICT,
+        1: HttpStatus.OK,
     }
 }
 

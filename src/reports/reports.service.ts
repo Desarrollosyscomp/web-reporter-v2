@@ -476,6 +476,97 @@ export class ReportsService {
         }
     }
 
+    public async inventory(warehouse_id: number, limit: number,
+        page: number, search?: string): Promise<TPaginatedServiceResponse> {
+        const connection = await this.db.getConnection();
+        try {
+            const offset = (page - 1) * limit;
+            const searchParam = search ? `%${search}%` : null;
+            const query = `
+                          SELECT
+                                i.cantidad AS cantidad,
+                                p.idproducto AS idproducto,
+                                p.referencia AS referencia,
+                                p.descripcion AS descripcion,
+                                p.codigo AS codigo,
+                                p.barcode AS barcode,
+                                p.costo AS costo,
+                                v.porcentaje AS iva_porcentaje,
+                                (p.costo * i.cantidad) AS costo_total,
+                                (p.costo * (v.porcentaje / 100)) AS valor_iva,
+                                p.precioventa AS precio_venta,
+                                (p.precioventa * i.cantidad) AS valorizado,
+                                p.ultcosto AS ultimo_costo,
+                                (p.ultcosto * i.cantidad) AS costo_ponderado,
+                                a.nomalmacen AS nombre_almacen,
+                                IF(p.impuestoico = 1, p.valorico, 0) AS valor_ico
+                            FROM productos p
+                            LEFT JOIN inventario i ON p.idproducto = i.idproducto
+                            LEFT JOIN iva v ON p.codivacomp = v.codiva
+                            LEFT JOIN almacenes a ON i.idalmacen = a.idalmacen
+                            WHERE p.tipo = 1
+                                AND p.estado = 1
+                                AND i.cantidad <> 0
+                                AND (? = 0 OR i.idalmacen = ?)
+                                AND (
+                                ? IS NULL
+                                OR p.descripcion LIKE ?
+                                OR p.codigo LIKE ?
+                                OR p.barcode LIKE ?
+                                )
+                            ORDER BY p.codigo ASC, i.idalmacen ASC
+                            LIMIT ? OFFSET ? `;
+
+            const params = [
+                warehouse_id,
+                warehouse_id,
+                searchParam,
+                searchParam,
+                searchParam,
+                searchParam,
+                limit,
+                offset
+            ];
+
+            const [rows] = await connection.query(query, params);
+            const countParams = [
+                warehouse_id,
+                warehouse_id,
+                searchParam,
+                searchParam,
+                searchParam,
+                searchParam
+            ];
+
+            const countQuery = `
+               SELECT COUNT(*) AS total
+                    FROM productos p
+                    LEFT JOIN inventario i ON p.idproducto = i.idproducto
+                    WHERE p.tipo = 1
+                        AND p.estado = 1
+                        AND i.cantidad > 0
+                        AND (? = 0 OR i.idalmacen = ?)
+                        AND (
+                        ? IS NULL
+                        OR p.descripcion LIKE ?
+                        OR p.codigo LIKE ?
+                        OR p.barcode LIKE ?
+                        ) `;
+
+            const [countRows] = await connection.query(countQuery, countParams);
+            return {
+                data: [rows, countRows[0].total],
+                error: false,
+            };
+        } catch (error) {
+            return { error: true, data: error.message };
+
+        } finally {
+            if (connection) this.db.release(connection);
+
+        }
+
+    }
 
 }
 

@@ -6,6 +6,7 @@ import {
     cashCountsUseCaseCompositor,
     cumulativeSalesUseCaseCompositor,
     detailSalesDayByWarehouseUseCaseCompositor,
+    inventoryUseCaseCompositor,
     invoiceDetailUseCaseCompositor,
     payablePortfolioUseCaseCompositor,
     receivablePortfolioUseCaseCompositor,
@@ -20,6 +21,7 @@ import {
 import { getValidationHttpStatus } from './helpers/reports-validator.http-status';
 import { PaginateReportDto } from './dto/paginate-report.dto';
 import { GetReportDto } from './dto/get-report.dto';
+import { PaginateInventoryDto } from './dto/paginate-inventory.dto';
 
 @ApiTags('Reports')
 @ApiBearerAuth()
@@ -225,6 +227,30 @@ export class ReportsController {
         const { init_date, end_date, page, limit, warehouse_id } = getReportDto;
         const { data, status } = await payablePortfolioUseCaseCompositor(req).main(init_date, end_date, page, limit, warehouse_id);
         const httpStatus = getHttpStatusReports('payablePortfolio', status || 1);
+        return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
+    }
+
+    @Get('inventory')
+    @ApiOperation({ summary: "Informe de inventario" })
+    @ApiQuery({
+        name: 'warehouse_id', required: true, example: 1,
+        description: 'Si el informe es de todos los almacenes, mandar por defecto 0 '
+    })
+    @ApiQuery({ name: 'limit', required: true, example: 10, description: 'Cantidad de registros a retornar' })
+    @ApiQuery({ name: 'page', required: true, example: 1, description: 'Página a retornar' })
+    @ApiQuery({ name: 'search', required: false, example: '', description: 'Buscador de productos, puede ser descripción, código ó barras' })
+    public async inventory(@Res() response: Response,
+        @Req() req: Request,
+        @Query() paginateInventoryDto: PaginateInventoryDto
+    ): Promise<Response | HttpException> {
+        const { warehouse_id, limit, page, search } = paginateInventoryDto
+        const { data, status } = await inventoryUseCaseCompositor(req).main(
+            warehouse_id,
+            limit,
+            page,
+            search
+        );
+        const httpStatus = getHttpStatusReports('inventory', status || 1);
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }
 

@@ -1,12 +1,15 @@
 import { HttpException, HttpStatus, Injectable, NestMiddleware, Req } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import type { NextFunction, Request, Response } from "express";
-import type { RequestWithTenant } from '../types/request-with-tenant';
+import type { RequestWithTenant, Ttenant } from '../types/request-with-tenant';
 import { TenantDatabaseService } from '../admin/tenant-database.service';
+
 @Injectable()
 export class ValidationMiddleware implements NestMiddleware {
-    private tenantService = new TenantDatabaseService();
-    public constructor(private readonly jwtService: JwtService,) { }
+    public constructor(
+        private readonly jwtService: JwtService,
+        private readonly tenantService: TenantDatabaseService
+    ) { }
 
     public async use(@Req() req: RequestWithTenant, res: Response, next: NextFunction) {
         const authHeader = req.headers.authorization;
@@ -27,9 +30,13 @@ export class ValidationMiddleware implements NestMiddleware {
             });
 
             const clientId = payload.tokenObject.client_id;
-            const tenantDb = await this.tenantService.getMysqlCredentials(clientId);
+            const tenantInfo: Ttenant = await this.tenantService.getMysqlCredentials(clientId);
+            
             req.user = { id: clientId };
-            req.tenant = tenantDb;
+            req.tenant = {
+                host: tenantInfo.ip,
+                database: tenantInfo.database,
+            };
             next();
         } catch (error) {
             throw new HttpException(
