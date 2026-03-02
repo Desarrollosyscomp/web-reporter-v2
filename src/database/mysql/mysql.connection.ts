@@ -3,11 +3,10 @@ import { databaseConfig } from '../config/database.config';
 
 type PoolKey = string;
 export class MySQLConnectionFactory {
-     private static pools: Map<PoolKey, Pool> = new Map();
+  private static pools: Map<PoolKey, Pool> = new Map();
 
-    public static getPool(host: string, database: string): Pool {
-         const key = `${host}_${database}`;
-
+  public static getPool(host: string, database: string): Pool {
+    const key = `${host}_${database}`;
     if (!this.pools.has(key)) {
       const pool = createPool({
         host,
