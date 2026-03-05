@@ -47,7 +47,6 @@ export class CumulativeSalesUseCase {
             (acc, item) => {
                 const total = Number(item.total || 0);
                 const returns = Number(item.valordev || 0);
-
                 acc.subtotal += Number(item.subtot || 0);
                 acc.totalSales += total;
                 acc.totalProducts += Number(item.prodvendid || 0);
@@ -56,7 +55,6 @@ export class CumulativeSalesUseCase {
                 acc.totalCosts += Number(item.costoacum || 0);
                 acc.returns += returns;
                 acc.salesMinusReturns += total - returns;
-
                 return acc;
             },
             {
