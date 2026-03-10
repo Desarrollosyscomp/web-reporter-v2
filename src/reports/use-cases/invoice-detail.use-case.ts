@@ -42,15 +42,15 @@ export class InvoiceDetailUseCase {
 
         return list.reduce<TSummary>((acc, item) => {
             const _subtotal = Number(item.subtotal || 0);
-            let _costo = Number(0);
-            _costo += item.total_costo;
+            let _cost = Number(0);
+            _cost += item.total_cost;
             acc.subtotal = item.subtotal;
             acc.totalSale = item.valortotal;
             acc.valueAddedTax = item.valimpuesto;
             acc.totalDiscounts = item.valdescuentos;
             acc.customer = `${item.nombres} ${item.apellidos}`;
             acc.totalItems += item.cantidad;
-            acc.profit = _subtotal - _costo;
+            acc.profit = _subtotal - _cost;
             return acc;
 
         }, {

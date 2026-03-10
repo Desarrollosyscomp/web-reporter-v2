@@ -22,7 +22,7 @@ export class InventoryUseCase {
     public async main(warehouse_id: number, limit: number,
         page: number, search?: string): Promise<TUseCaseResponse> {
         const { data, error } = await this.reportsService.inventory(warehouse_id, limit, page, search);
-        const summary = this.addValues(data[0], warehouse_id);
+        const summary = this.parseSummary(data[2], warehouse_id);
         const status = this.defineStatus(error || false);
         return new UseCaseResponse<TDetailInventory>({
             data: {
@@ -39,26 +39,16 @@ export class InventoryUseCase {
         return error ? 0 : 1;
     }
 
-    private addValues(list: Array<any>, warehouse_id: number): TSummary {
+    private parseSummary(summary: any, warehouse_id: number): TSummary {
 
-        return list.reduce<TSummary>((acc, item) => {
-            let warehouse_name: string = '';
-            if (warehouse_id === 0) {
-                warehouse_name = 'TODOS LOS ALMACENES';
-            }
-            acc.warehouseName = warehouse_name ? warehouse_name : item.nombre_almacen;
-            acc.inventoryStock += Number(item.cantidad || 0);
-            acc.averageInventoryCost += Number(item.costo_ponderado || 0);
-            acc.inventoryCost += Number(item.costo_total || 0);
-            acc.inventoryPrice += Number(item.valorizado || 0);
-
-            return acc;
-        }, {
-            warehouseName: '',
-            inventoryStock: 0,
-            averageInventoryCost: 0,
-            inventoryCost: 0,
-            inventoryPrice: 0
-        });
+        return {
+            warehouseName: warehouse_id === 0
+                ? 'TODOS LOS ALMACENES'
+                : summary.nomalmacen,
+            inventoryStock: Number(summary.inventoryStock || 0),
+            averageInventoryCost: Number(summary.averageInventoryCost || 0),
+            inventoryCost: Number(summary.inventoryCost || 0),
+            inventoryPrice: Number(summary.inventoryPrice || 0)
+        };
     }
 }

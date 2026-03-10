@@ -4,5 +4,5 @@ export type TServiceResponse = {
 }
 export type TPaginatedServiceResponse = {
   error?: boolean;
-  data: [Array<any>, number];
+  data: [Array<any>, number, object?];
 }

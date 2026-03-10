@@ -75,18 +75,30 @@ export class ReportsService {
             WHERE fecha = ? AND almacenes.idalmacen = ? AND estado = 0
             LIMIT ? OFFSET ?
             `;
-
-            const queryCount = `
+            const summaryQuery = `
+            SELECT 
+            COALESCE(SUM(subtotal),0) as subtotal,
+            COALESCE(SUM(valimpuesto),0) as total_impuestos,
+            COALESCE(SUM(valortotal),0) as total_ventas
+            FROM facturas
+            WHERE fecha = ? AND idalmacen = ? AND estado = 0
+            `;
+            const countQuery = `
             SELECT COUNT(*) as total 
             FROM facturas 
             WHERE fecha = ? AND idalmacen = ? AND estado = 0
             `;
-
-            const [rows] = await connection.query(query, [date, warehouse_id, limit, offset]);
-            const [count] = await connection.execute(queryCount, [date, warehouse_id]);
+            const params = [date, warehouse_id, limit, offset];
+            const countParams = [date, warehouse_id];
+            const summaryParams = [date, warehouse_id];
+            const [rows, count, summary] = await Promise.all([
+                connection.query(query, params),
+                connection.execute(countQuery, countParams),
+                connection.query(summaryQuery, summaryParams)
+            ]);
 
             return {
-                data: [rows, count[0].total],
+                data: [rows[0], count[0][0].total, summary[0][0]],
                 error: false
             }
         }
@@ -112,8 +124,12 @@ export class ReportsService {
             JOIN facturas f ON df.idfactura = f.idfactura
             JOIN terceros t ON f.idtercero = t.idtercero
             WHERE f.idalmacen = ? AND  f.numero= ?
-            `
-            const [rows] = await connection.query(query, [warehouse_id, invoice_number]);
+            `;
+            const params = [
+                warehouse_id,
+                invoice_number
+            ];
+            const [rows] = await connection.query(query, params);
             return { data: { invoice: rows }, error: false };
         } catch (error: any) {
             return { error: true, data: error.message };
@@ -197,13 +213,6 @@ export class ReportsService {
             ORDER BY e.fecha DESC, e.idalmacen
             LIMIT ? OFFSET ?;          
             `;
-            const params = [
-                init_date, end_date, warehouse_id, warehouse_id,
-                init_date, end_date, warehouse_id, warehouse_id,
-                init_date, end_date, warehouse_id, warehouse_id,
-                limit, offset
-            ];
-            const [rows] = await connection.query(query, params);
 
             const countQuery = `
                 SELECT COUNT(*) AS total
@@ -216,14 +225,83 @@ export class ReportsService {
                         GROUP BY a.idalmacen, a.fecha
                     ) x;
             `;
-            const [count] = await connection.execute(countQuery, [
+            const summaryQuery = `
+                        SELECT
+                        COALESCE(SUM(e.subtot),0) AS subtotal,
+                        COALESCE(SUM(e.total),0) AS totalSales,
+                        COALESCE(SUM(IFNULL(p.prodvendid,0)),0) AS totalProducts,
+                        COALESCE(SUM(e.cantfact),0) AS invoiceQuantity,
+                        COALESCE(SUM(e.ivaimp),0) AS totalTaxes,
+                        COALESCE(SUM(IFNULL(p.costoacum,0)),0) AS totalCosts,
+                        COALESCE(SUM(IFNULL(d.valordev,0)),0) AS returns,
+                        COALESCE(SUM(e.total - IFNULL(d.valordev,0)),0) AS salesMinusReturns
+                    FROM (
+                        SELECT 
+                            a.idalmacen,
+                            a.fecha,
+                            SUM(a.valortotal) AS total,
+                            COUNT(a.idfactura) AS cantfact,
+                            SUM(a.valretenciones) AS retencion,
+                            SUM(a.valimpuesto) AS ivaimp,
+                            SUM(a.subtotal) AS subtot,
+                            SUM(a.valdescuentos) AS sumdesc
+                        FROM facturas a
+                        WHERE a.fecha BETWEEN ? AND ?
+                        AND a.estado = 0
+                        AND (? = 0 OR a.idalmacen IN (?))
+                        GROUP BY a.idalmacen, a.fecha
+                    ) e
+                    LEFT JOIN (
+                        SELECT 
+                            a.idalmacen,
+                            a.fecha,
+                            SUM(dv.valordev) AS valordev
+                        FROM facturas a
+                        LEFT JOIN devventas dv ON dv.idfactura = a.idfactura
+                        WHERE a.fecha BETWEEN ? AND ?
+                        AND a.estado = 0
+                        AND (? = 0 OR a.idalmacen IN (?))
+                        GROUP BY a.idalmacen, a.fecha
+                    ) d ON d.fecha = e.fecha AND d.idalmacen = e.idalmacen
+                    LEFT JOIN (
+                        SELECT 
+                            a.idalmacen,
+                            a.fecha,
+                            SUM(df.cantidad) AS prodvendid,
+                            SUM(p.ultcosto * df.cantidad) AS costoacum
+                        FROM facturas a
+                        JOIN detfacturas df ON df.idfactura = a.idfactura
+                        JOIN productos p ON p.idproducto = df.idproducto
+                        WHERE a.fecha BETWEEN ? AND ?
+                        AND a.estado = 0
+                        AND (? = 0 OR a.idalmacen IN (?))
+                        GROUP BY a.idalmacen, a.fecha
+                    ) p ON p.fecha = e.fecha AND p.idalmacen = e.idalmacen
+            `;
+            const params = [
+                init_date, end_date, warehouse_id, warehouse_id,
+                init_date, end_date, warehouse_id, warehouse_id,
+                init_date, end_date, warehouse_id, warehouse_id,
+                limit, offset
+            ];
+            const countParams = [
                 init_date,
                 end_date,
                 warehouse_id,
                 warehouse_id
+            ];
+            const totalParams = [
+                init_date, end_date, warehouse_id, warehouse_id,
+                init_date, end_date, warehouse_id, warehouse_id,
+                init_date, end_date, warehouse_id, warehouse_id
+            ];
+            const [rows, count, summary] = await Promise.all([
+                connection.query(query, params),
+                connection.execute(countQuery, countParams),
+                connection.query(summaryQuery, totalParams)
             ]);
             return {
-                data: [rows, count[0].total],
+                data: [rows[0], count[0][0].total, summary[0][0]],
                 error: false,
             };
         } catch (error: any) {
@@ -233,7 +311,6 @@ export class ReportsService {
                 this.db.release(connection);
             }
         }
-
     }
 
     public async cashCounts(date: string, warehouse_id: number): Promise<TServiceResponse> {
@@ -375,7 +452,6 @@ export class ReportsService {
                 LIMIT ? OFFSET ?;
             `;
             const params = [warehouse_id, init_date, end_date, limit, offset];
-            const [rows] = await connection.query(query, params);
             const countParams = [warehouse_id, init_date, end_date];
             const countQuery = `
                 SELECT COUNT(*) AS total
@@ -393,11 +469,37 @@ export class ReportsService {
                 GROUP BY c.idcartera, c.valtotaldoc
                 HAVING (c.valtotaldoc - IFNULL(SUM(dc.valor), 0)) > 0
             ) AS total_rows;
-
             `;
-            const [count] = await connection.query(countQuery, countParams);
+
+            const summaryQuery = `
+                SELECT
+                    COALESCE(SUM(total_pagado),0) AS totalPayed,
+                    COALESCE(SUM(saldo_pendiente),0) AS pendingPaid
+                FROM (
+                    SELECT
+                        c.idcartera,
+                        IFNULL(SUM(dc.valor),0) AS total_pagado,
+                        (c.valtotaldoc - IFNULL(SUM(dc.valor),0)) AS saldo_pendiente
+                    FROM cartera c
+                    LEFT JOIN detcartera dc ON dc.idcartera = c.idcartera
+                    WHERE
+                        c.idalmacen = ?
+                        AND c.fechadoc BETWEEN ? AND ?
+                        AND c.tipodoc IN ('FACTURA','PEDIDO')
+                        AND c.tipocartera = 1
+                    GROUP BY c.idcartera, c.valtotaldoc
+                    HAVING saldo_pendiente > 0
+                ) x;
+            `;
+            const summaryParams = [warehouse_id, init_date, end_date];
+
+            const [rows, count, summary]: any = await Promise.all([
+                connection.query(query, params),
+                connection.query(countQuery, countParams),
+                connection.query(summaryQuery, summaryParams)
+            ]);
             return {
-                data: [rows, count[0].total],
+                data: [rows[0], count[0][0].total, summary[0][0]],
                 error: false,
             };
         } catch (error) {
@@ -443,7 +545,6 @@ export class ReportsService {
                     LIMIT ? OFFSET ?;
                  `;
             const params = [warehouse_id, init_date, end_date, limit, offset];
-            const [rows] = await connection.query(query, params);
             const countParams = [warehouse_id, init_date, end_date];
             const countQuery = `
                 SELECT COUNT(*) AS total
@@ -462,9 +563,35 @@ export class ReportsService {
                         HAVING (c.valtotaldoc - IFNULL(SUM(dc.valor), 0)) > 0
                     ) AS total_rows;
                     `;
-            const [count] = await connection.query(countQuery, countParams);
+
+            const summaryQuery = `
+                    SELECT
+                        COALESCE(SUM(total_pagado),0) AS totalPayed,
+                        COALESCE(SUM(saldo_pendiente),0) AS pendingPaid
+                    FROM (
+                        SELECT
+                            c.idcartera,
+                            IFNULL(SUM(dc.valor),0) AS total_pagado,
+                            (c.valtotaldoc - IFNULL(SUM(dc.valor),0)) AS saldo_pendiente
+                        FROM cartera c
+                        LEFT JOIN detcartera dc ON dc.idcartera = c.idcartera
+                        WHERE
+                            c.idalmacen = ?
+                            AND c.fechadoc BETWEEN ? AND ?
+                            AND c.tipodoc IN ('COMPRA')
+                            AND c.tipocartera = 2
+                        GROUP BY c.idcartera, c.valtotaldoc
+                        HAVING saldo_pendiente > 0
+                    ) x;
+            `;
+            const summaryParams = [warehouse_id, init_date, end_date];
+            const [rows, count, summary]: any = await Promise.all([
+                connection.query(query, params),
+                connection.query(countQuery, countParams),
+                connection.query(summaryQuery, summaryParams)
+            ]);
             return {
-                data: [rows, count[0].total],
+                data: [rows[0], count[0][0].total, summary[0][0]],
                 error: false,
             };
 
@@ -527,9 +654,16 @@ export class ReportsService {
                 limit,
                 offset
             ];
-
-            const [rows] = await connection.query(query, params);
             const countParams = [
+                warehouse_id,
+                warehouse_id,
+                searchParam,
+                searchParam,
+                searchParam,
+                searchParam
+            ];
+
+            const summaryParams = [
                 warehouse_id,
                 warehouse_id,
                 searchParam,
@@ -553,9 +687,34 @@ export class ReportsService {
                         OR p.barcode LIKE ?
                         ) `;
 
-            const [countRows] = await connection.query(countQuery, countParams);
+            const summaryQuery = `
+                    SELECT
+                        SUM(i.cantidad) AS inventoryStock,
+                        SUM(p.ultcosto * i.cantidad) AS averageInventoryCost,
+                        SUM(p.costo * i.cantidad) AS inventoryCost,
+                        SUM(p.precioventa * i.cantidad) AS inventoryPrice,
+                        a.nomalmacen
+                    FROM productos p
+                    LEFT JOIN inventario i ON p.idproducto = i.idproducto
+                    LEFT JOIN almacenes a ON i.idalmacen = a.idalmacen
+                    WHERE p.tipo = 1
+                        AND p.estado = 1
+                        AND i.cantidad <> 0
+                        AND (? = 0 OR i.idalmacen = ?)
+                        AND (
+                            ? IS NULL
+                            OR p.descripcion LIKE ?
+                            OR p.codigo LIKE ?
+                            OR p.barcode LIKE ?
+                        );
+                        `;
+            const [rows, countRows, summaryRows]: any = await Promise.all([
+                connection.query(query, params),
+                connection.query(countQuery, countParams),
+                connection.query(summaryQuery, summaryParams)
+            ]);
             return {
-                data: [rows, countRows[0].total],
+                data: [rows[0], countRows[0][0].total, summaryRows[0][0]],
                 error: false,
             };
         } catch (error) {

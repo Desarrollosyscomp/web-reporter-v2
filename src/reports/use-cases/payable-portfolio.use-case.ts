@@ -19,7 +19,7 @@ export class PayablePortfolioUseCase {
     public async main(init_date: string, end_date: string,
         page: number, limit: number, warehouse_id: number): Promise<TUseCaseResponse> {
         const { data, error } = await this.reportsService.payablePortfolio(init_date, end_date, page, limit, warehouse_id);
-        const summary = this.addValues(data[0]);
+        const summary = this.parseSummary(data[2]);
         const status = this.defineStatus(error || false);
         return new UseCaseResponse<TPayablePortfolioRawData>({
             data: {
@@ -36,15 +36,10 @@ export class PayablePortfolioUseCase {
     private defineStatus(error: boolean): number {
         return error ? 0 : 1;
     }
-    private addValues(list: Array<any>): TSummary {
-
-        return list.reduce<TSummary>((acc, item) => {
-            acc.pendingPaid += Number(item.saldo_pendiente);
-            acc.totalPayed += Number(item.total_pagado);
-            return acc;
-        }, {
-            pendingPaid: 0,
-            totalPayed: 0
-        });
+    private parseSummary(summary:any): TSummary {
+        return {
+            pendingPaid: summary.pendingPaid,
+            totalPayed: summary.totalPayed
+        }
     }
 }

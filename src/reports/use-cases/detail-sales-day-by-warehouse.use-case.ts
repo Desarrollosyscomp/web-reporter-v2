@@ -20,7 +20,7 @@ export class DetailSalesDayByWarehouseUseCase {
 
     public async main(date: string, warehouse_id: number, page: number, limit: number): Promise<TUseCaseResponse> {
         const { data, error } = await this.reportsService.detailSalesDayByWarehouse(date, warehouse_id, page, limit);
-        const summary = this.addValues(data[0]);
+        const summary = this.addValues(data[2]);
         const status = this.defineStatus(error || false);
         return new UseCaseResponse<TDetailSalesRawData>({
             data: {
@@ -37,19 +37,14 @@ export class DetailSalesDayByWarehouseUseCase {
         return error ? 0 : 1;
     }
 
-    private addValues(list: Array<any>): TSummary {
+    private addValues(summary: any): TSummary {
 
-        let summary: TSummary = {
-            subtotal: 0,
-            totalTaxes: 0,
-            totalSales: 0
+        let _summary: TSummary = {
+            subtotal: summary.subtotal,
+            totalTaxes: summary.total_impuestos,
+            totalSales: summary.total_ventas
         };
 
-        list.forEach((element: any) => {
-            summary.subtotal += element.subtotal;
-            summary.totalTaxes += element.valimpuesto;
-            summary.totalSales += element.valortotal;
-        })
-        return summary
+        return _summary
     }
 }

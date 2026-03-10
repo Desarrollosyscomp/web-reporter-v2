@@ -24,7 +24,7 @@ export class CumulativeSalesUseCase {
 
     public async main(init_date: string, end_date: string, page: number, limit: number, warehouse_id: number): Promise<TUseCaseResponse> {
         const { data, error } = await this.reportsService.getCumulativeSales(init_date, end_date, page, limit, warehouse_id);
-        const summary = this.addValues(data[0]);
+        const summary = this.parseResponse(data[2]);
         const status = this.defineStatus(error || false);
         return new UseCaseResponse<TCumilativeSalesRawData>({
             data: {
@@ -41,33 +41,19 @@ export class CumulativeSalesUseCase {
         return error ? 0 : 1;
     }
 
-    private addValues(list: Array<any>): TSummary {
+    private parseResponse(summary: any): TSummary {
 
-        return list.reduce<TSummary>(
-            (acc, item) => {
-                const total = Number(item.total || 0);
-                const returns = Number(item.valordev || 0);
-                acc.subtotal += Number(item.subtot || 0);
-                acc.totalSales += total;
-                acc.totalProducts += Number(item.prodvendid || 0);
-                acc.invoiceQuantity += Number(item.cantfact || 0);
-                acc.totalTaxes += Number(item.ivaimp || 0);
-                acc.totalCosts += Number(item.costoacum || 0);
-                acc.returns += returns;
-                acc.salesMinusReturns += total - returns;
-                return acc;
-            },
-            {
-                subtotal: 0,
-                totalSales: 0,
-                totalProducts: 0,
-                invoiceQuantity: 0,
-                totalTaxes: 0,
-                totalCosts: 0,
-                returns: 0,
-                salesMinusReturns: 0
-            }
-        );
+        let _summary: TSummary = {
+            subtotal: summary.subtotal,
+            totalSales: summary.totalSales,
+            totalProducts: summary.totalProducts,
+            invoiceQuantity: Number(summary.invoiceQuantity || 0),
+            totalTaxes: summary.totalTaxes,
+            totalCosts: summary.totalCosts,
+            salesMinusReturns: summary.salesMinusReturns,
+            returns: summary.returns
+        }
+        return _summary;
     }
 
 }
