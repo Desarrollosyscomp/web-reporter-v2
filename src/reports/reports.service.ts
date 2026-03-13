@@ -687,12 +687,13 @@ export class ReportsService {
                         OR p.barcode LIKE ?
                         ) `;
 
-            const summaryQuery = `
+                        const summaryQuery = `
                     SELECT
                         SUM(i.cantidad) AS inventoryStock,
                         SUM(p.ultcosto * i.cantidad) AS averageInventoryCost,
                         SUM(p.costo * i.cantidad) AS inventoryCost,
                         SUM(p.precioventa * i.cantidad) AS inventoryPrice,
+                        SUM((p.precioventa - p.costo) * i.cantidad) AS profit,
                         a.nomalmacen
                     FROM productos p
                     LEFT JOIN inventario i ON p.idproducto = i.idproducto
@@ -708,6 +709,7 @@ export class ReportsService {
                             OR p.barcode LIKE ?
                         );
                         `;
+                        
             const [rows, countRows, summaryRows]: any = await Promise.all([
                 connection.query(query, params),
                 connection.query(countQuery, countParams),

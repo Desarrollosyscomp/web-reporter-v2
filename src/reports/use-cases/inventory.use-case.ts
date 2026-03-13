@@ -8,6 +8,7 @@ type TSummary = {
     averageInventoryCost: number;
     inventoryCost: number;
     inventoryPrice: number;
+    profit: number
 }
 
 type TDetailInventory = {
@@ -48,7 +49,8 @@ export class InventoryUseCase {
             inventoryStock: Number(summary.inventoryStock || 0),
             averageInventoryCost: Number(summary.averageInventoryCost || 0),
             inventoryCost: Number(summary.inventoryCost || 0),
-            inventoryPrice: Number(summary.inventoryPrice || 0)
+            inventoryPrice: Number(summary.inventoryPrice || 0),
+            profit: Number(summary.profit || 0)
         };
     }
 }
