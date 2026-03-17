@@ -83,6 +83,21 @@ export class ReportsService {
             FROM facturas
             WHERE fecha = ? AND idalmacen = ? AND estado = 0
             `;
+
+            const paymentMethodsQuery = `
+            SELECT 
+                fp.idpago,
+                fp.nompago,
+                SUM(cf.valor) as total
+            FROM cuotasfactura cf
+            INNER JOIN formaspago fp ON cf.idpago = fp.idpago
+            INNER JOIN facturas f ON cf.idfactura = f.idfactura
+            WHERE f.fecha = ? 
+            AND f.idalmacen = ? 
+            AND f.estado = 0
+            GROUP BY fp.idpago, fp.nompago
+            ORDER BY fp.nompago
+            `;
             const countQuery = `
             SELECT COUNT(*) as total 
             FROM facturas 
@@ -91,14 +106,16 @@ export class ReportsService {
             const params = [date, warehouse_id, limit, offset];
             const countParams = [date, warehouse_id];
             const summaryParams = [date, warehouse_id];
-            const [rows, count, summary] = await Promise.all([
+
+            const [rows, count, summary, paymentMethods] = await Promise.all([
                 connection.query(query, params),
                 connection.execute(countQuery, countParams),
-                connection.query(summaryQuery, summaryParams)
+                connection.query(summaryQuery, summaryParams),
+                connection.query(paymentMethodsQuery, summaryParams)
             ]);
 
             return {
-                data: [rows[0], count[0][0].total, summary[0][0]],
+                data: [rows[0], count[0][0].total, { ...summary[0][0], paymentMethods: paymentMethods[0] }],
                 error: false
             }
         }
@@ -687,7 +704,7 @@ export class ReportsService {
                         OR p.barcode LIKE ?
                         ) `;
 
-                        const summaryQuery = `
+            const summaryQuery = `
                     SELECT
                         SUM(i.cantidad) AS inventoryStock,
                         SUM(p.ultcosto * i.cantidad) AS averageInventoryCost,
@@ -709,7 +726,7 @@ export class ReportsService {
                             OR p.barcode LIKE ?
                         );
                         `;
-                        
+
             const [rows, countRows, summaryRows]: any = await Promise.all([
                 connection.query(query, params),
                 connection.query(countQuery, countParams),

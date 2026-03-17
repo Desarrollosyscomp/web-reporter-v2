@@ -7,6 +7,7 @@ type TSummary = {
     subtotal: number;
     totalTaxes: number;
     totalSales: number;
+    paymentMethods: Array<TPaymentMethod>;
 }
 
 type TDetailSalesRawData = {
@@ -14,6 +15,12 @@ type TDetailSalesRawData = {
     count: number;
     summary: TSummary;
 };
+
+type TPaymentMethod = {
+    payment_id: number;
+    payment_name: string;
+    payment_total: number;
+}
 
 export class DetailSalesDayByWarehouseUseCase {
     public constructor(private readonly reportsService: ReportsService) { }
@@ -42,7 +49,12 @@ export class DetailSalesDayByWarehouseUseCase {
         let _summary: TSummary = {
             subtotal: summary.subtotal,
             totalTaxes: summary.total_impuestos,
-            totalSales: summary.total_ventas
+            totalSales: summary.total_ventas,
+            paymentMethods: summary.paymentMethods.map((payment: any) => ({
+                payment_id: payment.idpago,
+                payment_name: payment.nompago,
+                payment_total: payment.total
+            }))
         };
 
         return _summary
