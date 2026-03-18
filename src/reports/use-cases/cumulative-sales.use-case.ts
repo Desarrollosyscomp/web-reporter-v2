@@ -11,6 +11,7 @@ type TSummary = {
     totalCosts: number;
     salesMinusReturns: number;
     returns: number;
+    profit: number;
 }
 
 type TCumilativeSalesRawData = {
@@ -42,7 +43,7 @@ export class CumulativeSalesUseCase {
     }
 
     private parseResponse(summary: any): TSummary {
-
+        let _profit = summary.salesMinusReturns - summary.totalCosts;
         let _summary: TSummary = {
             subtotal: summary.subtotal,
             totalSales: summary.totalSales,
@@ -51,7 +52,8 @@ export class CumulativeSalesUseCase {
             totalTaxes: summary.totalTaxes,
             totalCosts: summary.totalCosts,
             salesMinusReturns: summary.salesMinusReturns,
-            returns: summary.returns
+            returns: summary.returns,
+            profit: _profit
         }
         return _summary;
     }
