@@ -9,7 +9,9 @@ type TSummary = {
     totalSale: number;
     customer: string;
     profit: number;
-    totalItems: number
+    totalItems: number;
+    paymentMethods: Array<TPaymentMethod>;
+
 }
 
 type TInvoiceDetails = {
@@ -17,12 +19,19 @@ type TInvoiceDetails = {
     summary: TSummary;
 }
 
+type TPaymentMethod = {
+    payment_id: number;
+    payment_name: string;
+    payment_total: number;
+}
+
+
 export class InvoiceDetailUseCase {
     public constructor(private readonly reportsService: ReportsService) { }
 
     public async main(warehouse_id: number, invoice_number: number): Promise<TUseCaseResponse> {
         const { data, error } = await this.reportsService.invoiceDetailByWarehouseAndNumber(warehouse_id, invoice_number);
-        const summary = this.getSummary(data.invoice);
+        const summary = this.getSummary(data.invoice, data.paymentMethods);
         const status = this.defineStatus(error || false);
         return new UseCaseResponse<TInvoiceDetails>({
             data: {
@@ -38,7 +47,8 @@ export class InvoiceDetailUseCase {
         return error ? 0 : 1;
     }
 
-    private getSummary(list: Array<any>): TSummary {
+    private getSummary(list: Array<any>, paymentMethods: Array<any>): TSummary {
+
 
         return list.reduce<TSummary>((acc, item) => {
             const _subtotal = Number(item.subtotal || 0);
@@ -51,6 +61,11 @@ export class InvoiceDetailUseCase {
             acc.customer = `${item.nombres} ${item.apellidos}`;
             acc.totalItems += item.cantidad;
             acc.profit = _subtotal - _cost;
+            acc.paymentMethods = paymentMethods.map((payment) => ({
+                payment_id: payment.idpago,
+                payment_name: payment.nompago,
+                payment_total: payment.total
+            }));
             return acc;
 
         }, {
@@ -60,7 +75,8 @@ export class InvoiceDetailUseCase {
             totalSale: 0,
             customer: '',
             profit: 0,
-            totalItems: 0
+            totalItems: 0,
+            paymentMethods: []
         });
     }
 

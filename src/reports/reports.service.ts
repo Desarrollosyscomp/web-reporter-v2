@@ -142,12 +142,33 @@ export class ReportsService {
             JOIN terceros t ON f.idtercero = t.idtercero
             WHERE f.idalmacen = ? AND  f.numero= ?
             `;
+
+            const paymentMethodsQuery = `
+            SELECT 
+                fp.idpago,
+                fp.nompago,
+                SUM(cf.valor) as total
+            FROM cuotasfactura cf
+            INNER JOIN formaspago fp ON cf.idpago = fp.idpago
+            INNER JOIN facturas f ON cf.idfactura = f.idfactura
+            WHERE f.numero = ? 
+            AND f.idalmacen = ? 
+            AND f.estado = 0
+            GROUP BY fp.idpago, fp.nompago
+            ORDER BY fp.nompago
+            `;
+
             const params = [
                 warehouse_id,
                 invoice_number
             ];
+            const paymentMethodsParams = [
+                invoice_number,
+                warehouse_id
+            ];
             const [rows] = await connection.query(query, params);
-            return { data: { invoice: rows }, error: false };
+            const [paymentMethods] = await connection.query(paymentMethodsQuery, paymentMethodsParams);
+            return { data: { invoice: rows, paymentMethods }, error: false };
         } catch (error: any) {
             return { error: true, data: error.message };
         } finally {
