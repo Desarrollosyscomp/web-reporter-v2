@@ -5,6 +5,7 @@ import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestj
 import {
     cashCountsUseCaseCompositor,
     cumulativeSalesUseCaseCompositor,
+    dashboardUseCaseCompositor,
     detailSalesDayByWarehouseUseCaseCompositor,
     inventoryUseCaseCompositor,
     invoiceDetailUseCaseCompositor,
@@ -22,6 +23,7 @@ import { getValidationHttpStatus } from './helpers/reports-validator.http-status
 import { PaginateReportDto } from './dto/paginate-report.dto';
 import { GetReportDto } from './dto/get-report.dto';
 import { PaginateInventoryDto } from './dto/paginate-inventory.dto';
+import { DashboardDto } from './dto/dashboard.dto';
 
 @ApiTags('Reports')
 @ApiBearerAuth()
@@ -251,6 +253,29 @@ export class ReportsController {
             search
         );
         const httpStatus = getHttpStatusReports('inventory', status || 1);
+        return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
+    }
+
+    @Get('dashboard/summary')
+    @ApiOperation({ summary: 'Resumen general del día y últimos 7 días ' })
+    @ApiQuery({
+        name: 'init_date',
+        required: false,
+        type: String,
+        description: 'Fecha inicial en formato YYYYMMDD',
+        example: '20260410',
+    })
+    @ApiQuery({
+        name: 'end_date',
+        required: false,
+        type: String,
+        description: 'Fecha final en formato YYYYMMDD',
+        example: '20260410'
+    })
+    public async dashboard(@Res() response: Response, @Req() req: Request, @Query() dashboardDto: DashboardDto): Promise<Response | HttpException> {
+        const { init_date, end_date } = dashboardDto;
+        const { data, status } = await dashboardUseCaseCompositor(req).main(init_date, end_date);
+        const httpStatus = getHttpStatusReports('dashboard', status || 1);
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }
 

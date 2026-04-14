@@ -1,5 +1,6 @@
 import { TPaginatedServiceResponse, TServiceResponse } from "../local-responses/response-types/service-response.type";
 import { DatabaseConnection } from "../database/database.interface";
+import { TRange } from "./use-cases/dashboard.use-case";
 
 export class ReportsService {
     public constructor(private readonly db: DatabaseConnection) { }
@@ -769,6 +770,167 @@ export class ReportsService {
 
         }
 
+    }
+
+    public async dashboard(range: TRange): Promise<TServiceResponse> {
+        const connection = await this.db.getConnection();
+        try {
+
+            const { summary_range, weekly_range } = range
+            const { init: summary_init, end: summary_end } = summary_range
+            const { from: weekly_from, to: weekly_to } = weekly_range
+            const cumulativeSalesParams = [
+                weekly_from, weekly_to,
+                weekly_from, weekly_to,
+                weekly_from, weekly_to
+            ];
+            const salesDayParam = [summary_init];
+            const payableParam = [weekly_from, weekly_to];
+            const salesDayQuery = ` 
+                        SELECT
+                            f.fecha,
+                            f.idalmacen,
+                            SUM(f.valortotal) AS total,
+                            SUM(f.valortotal) + IFNULL(SUM(o.propina), 0) AS totalconprop,
+                            alm.nomalmacen
+                        FROM facturas f
+                        INNER JOIN almacenes alm
+                            ON f.idalmacen = alm.idalmacen
+                            AND alm.idempresa = 1
+                        LEFT JOIN ordenes o
+                            ON f.idfactura = o.idfactura
+                        LEFT JOIN devventas dv
+                            ON f.idfactura = dv.idfactura
+                        LEFT JOIN detfacturas df
+                            ON f.idfactura = df.idfactura
+                        LEFT JOIN productos p
+                            ON df.idproducto = p.idproducto
+                        WHERE
+                            f.fecha = ?
+                            AND f.estado = 0
+                        GROUP BY
+                            f.fecha,
+                            f.idalmacen,
+                            alm.nomalmacen
+                        ORDER BY
+                            f.idalmacen ASC
+                    `;
+
+            const payableQuery = `
+                    SELECT
+                        COALESCE(SUM(total_pagado),0) AS totalPayed,
+                        COALESCE(SUM(saldo_pendiente),0) AS pendingPaid
+                    FROM (
+                        SELECT
+                            c.idcartera,
+                            IFNULL(SUM(dc.valor),0) AS total_pagado,
+                            (c.valtotaldoc - IFNULL(SUM(dc.valor),0)) AS saldo_pendiente
+                        FROM cartera c
+                        LEFT JOIN detcartera dc ON dc.idcartera = c.idcartera
+                        WHERE
+                            c.fechadoc BETWEEN ? AND ?
+                            AND c.tipodoc IN ('COMPRA')
+                            AND c.tipocartera = 2
+                        GROUP BY c.idcartera, c.valtotaldoc
+                        HAVING saldo_pendiente > 0
+                    ) x;
+            `;
+
+            const receivablePortfolioQuery = `
+                SELECT
+                    COALESCE(SUM(total_pagado),0) AS totalPayed,
+                    COALESCE(SUM(saldo_pendiente),0) AS pendingPaid
+                FROM (
+                    SELECT
+                        c.idcartera,
+                        IFNULL(SUM(dc.valor),0) AS total_pagado,
+                        (c.valtotaldoc - IFNULL(SUM(dc.valor),0)) AS saldo_pendiente
+                    FROM cartera c
+                    LEFT JOIN detcartera dc ON dc.idcartera = c.idcartera
+                    WHERE
+                        c.fechadoc BETWEEN ? AND ?
+                        AND c.tipodoc IN ('FACTURA','PEDIDO')
+                        AND c.tipocartera = 1
+                    GROUP BY c.idcartera, c.valtotaldoc
+                    HAVING saldo_pendiente > 0
+                ) x;
+            `;
+
+            const cumulativeSalesQuery = `
+                    SELECT
+                        e.fecha,
+                        COALESCE(SUM(e.subtot),0) AS subtotal,
+                        COALESCE(SUM(e.total),0) AS totalSales,
+                        COALESCE(SUM(IFNULL(p.prodvendid,0)),0) AS totalProducts,
+                        COALESCE(SUM(e.cantfact),0) AS invoiceQuantity,
+                        COALESCE(SUM(e.ivaimp),0) AS totalTaxes,
+                        COALESCE(SUM(IFNULL(p.costoacum,0)),0) AS totalCosts,
+                        COALESCE(SUM(IFNULL(d.valordev,0)),0) AS returns,
+                        COALESCE(SUM(e.total - IFNULL(d.valordev,0)),0) AS salesMinusReturns
+                    FROM (
+                        SELECT 
+                            a.idalmacen,
+                            a.fecha,
+                            SUM(a.valortotal) AS total,
+                            COUNT(a.idfactura) AS cantfact,
+                            SUM(a.valretenciones) AS retencion,
+                            SUM(a.valimpuesto) AS ivaimp,
+                            SUM(a.subtotal) AS subtot,
+                            SUM(a.valdescuentos) AS sumdesc
+                        FROM facturas a
+                        WHERE a.fecha BETWEEN ? AND ?
+                        AND a.estado = 0
+                        GROUP BY a.idalmacen, a.fecha
+                    ) e
+                    LEFT JOIN (
+                        SELECT 
+                            a.idalmacen,
+                            a.fecha,
+                            SUM(dv.valordev) AS valordev
+                        FROM facturas a
+                        LEFT JOIN devventas dv ON dv.idfactura = a.idfactura
+                        WHERE a.fecha BETWEEN ? AND ?
+                        AND a.estado = 0
+                        GROUP BY a.idalmacen, a.fecha
+                    ) d ON d.fecha = e.fecha AND d.idalmacen = e.idalmacen
+                    LEFT JOIN (
+                        SELECT 
+                            a.idalmacen,
+                            a.fecha,
+                            SUM(df.cantidad) AS prodvendid,
+                            SUM(p.ultcosto * df.cantidad) AS costoacum
+                        FROM facturas a
+                        JOIN detfacturas df ON df.idfactura = a.idfactura
+                        JOIN productos p ON p.idproducto = df.idproducto
+                        WHERE a.fecha BETWEEN ? AND ?
+                        AND a.estado = 0
+                        GROUP BY a.idalmacen, a.fecha
+                    ) p ON p.fecha = e.fecha AND p.idalmacen = e.idalmacen
+                    GROUP BY e.fecha
+                    ORDER BY e.fecha ASC
+                    `;
+            const [salesDayRows, payableRows, receivablePortfolioRows, cumulativeSalesRows] = await Promise.all([
+                connection.query(salesDayQuery, salesDayParam),
+                connection.query(payableQuery, payableParam),
+                connection.query(receivablePortfolioQuery, payableParam),
+                connection.query(cumulativeSalesQuery, cumulativeSalesParams),
+            ])
+            return {
+                data: {
+                    salesDay: salesDayRows[0],
+                    payablePortfolio: payableRows[0],
+                    receivablePortfolio: receivablePortfolioRows[0],
+                    cumulativeSales: cumulativeSalesRows[0],
+                },
+                error: false,
+            };
+        } catch (error: any) {
+            return { error: true, data: error.message };
+
+        } finally {
+            if (connection) this.db.release(connection);
+
+        }
     }
 
 }

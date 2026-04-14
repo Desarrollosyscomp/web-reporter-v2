@@ -32,6 +32,10 @@ const reportsStatusMap: Record<string, Record<number, number>> = {
     inventory: {
         0: HttpStatus.CONFLICT,
         1: HttpStatus.OK,
+    },
+    dashboard: {
+        0: HttpStatus.CONFLICT,
+        1: HttpStatus.OK,
     }
 }
 

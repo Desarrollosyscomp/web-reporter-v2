@@ -2,6 +2,7 @@ import { MySQLAdapter } from "../../database/mysql/mysql.adapter";
 import { ReportsService } from "../reports.service";
 import { CashCountsUseCase } from "../use-cases/cash-counts.use-case";
 import { CumulativeSalesUseCase } from "../use-cases/cumulative-sales.use-case";
+import { DashboardUseCase } from "../use-cases/dashboard.use-case";
 import { DetailSalesDayByWarehouseUseCase } from "../use-cases/detail-sales-day-by-warehouse.use-case";
 import { InventoryUseCase } from "../use-cases/inventory.use-case";
 import { InvoiceDetailUseCase } from "../use-cases/invoice-detail.use-case";
@@ -48,5 +49,10 @@ export const payablePortfolioUseCaseCompositor = (req: Request): PayablePortfoli
 
 export const inventoryUseCaseCompositor = (req: Request): InventoryUseCase =>
     new InventoryUseCase(
+        new ReportsService(new MySQLAdapter(req as any))
+    );
+
+export const dashboardUseCaseCompositor = (req: Request): DashboardUseCase =>
+    new DashboardUseCase(
         new ReportsService(new MySQLAdapter(req as any))
     );
