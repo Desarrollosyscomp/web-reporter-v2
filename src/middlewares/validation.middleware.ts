@@ -36,6 +36,8 @@ export class ValidationMiddleware implements NestMiddleware {
             req.tenant = {
                 host: tenantInfo.ip,
                 database: tenantInfo.database,
+                user: tenantInfo.user,
+                password: tenantInfo.password,
             };
             next();
         } catch (error) {

@@ -16,6 +16,12 @@ export class ConxposUtilityDataBase {
     @Column({ type: 'varchar', length: 255, nullable: false })
     database_name: string;
 
+    @Column({ type: 'varchar', length: 255, nullable: false })
+    db_user: string;
+
+    @Column({ type: 'varchar', length: 255, nullable: false })
+    db_password: string;
+
     @Column({ type: 'boolean', nullable: false, default: true })
     is_active: boolean;
 

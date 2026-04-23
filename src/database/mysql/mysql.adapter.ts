@@ -11,8 +11,8 @@ export class MySQLAdapter implements DatabaseConnection {
             throw new Error('Base de datos no resuelta');
         }
 
-        const { host, database } = this.request.tenant;
-        return MySQLConnectionFactory.getPool(host, database);
+        const { host, database, user, password } = this.request.tenant;
+        return MySQLConnectionFactory.getPool(host, database, user, password);
     }
 
     public async getConnection(): Promise<PoolConnection> {

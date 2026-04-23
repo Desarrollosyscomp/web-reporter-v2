@@ -36,6 +36,8 @@ export class TenantDatabaseService {
     const tenantConfig: Ttenant = {
       database: db.database_name,
       ip: auth.database_ip,
+      user: db.db_user,
+      password: db.db_password,
     };
     await this.cacheManager.set(cacheKey, tenantConfig);
 
