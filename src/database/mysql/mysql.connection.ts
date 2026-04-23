@@ -17,7 +17,8 @@ export class MySQLConnectionFactory {
         connectionLimit: databaseConfig.connectionLimit,
         waitForConnections: true,
       });
-      console.log(this.pools.get(key));
+      console.log(key);
+      console.log(databaseConfig);
       this.pools.set(key, pool);
     }
     return this.pools.get(key)!;
