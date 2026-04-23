@@ -12,4 +12,4 @@ export const databaseConfig = {
     connectLimit: 10000,
     acquireTimeout: 10000,
 };
-console.log(databaseConfig);
+console.log(process.env.DB_HOST);
