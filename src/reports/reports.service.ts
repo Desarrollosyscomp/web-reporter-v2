@@ -467,6 +467,7 @@ export class ReportsService {
                     c.idcartera,
                     c.tipodoc,
                     c.iddocumento,
+                    f.numero, 
                     c.fechadoc,
                     c.fechacuota,
                     c.idtercero,
@@ -482,12 +483,15 @@ export class ReportsService {
                 INNER JOIN terceros t ON t.idtercero = c.idtercero
                 INNER JOIN almacenes a ON a.idalmacen = c.idalmacen
                 LEFT JOIN detcartera dc ON dc.idcartera = c.idcartera
+                LEFT JOIN facturas f 
+                ON f.idfactura = c.iddocumento
+                AND c.tipodoc = 'FACTURA'
                 WHERE
                     c.idalmacen = ?
                     AND c.fechadoc BETWEEN ? AND ?
                     AND c.tipodoc IN ('FACTURA', 'PEDIDO')
                     AND c.tipocartera = 1
-                GROUP BY c.idcartera
+                GROUP BY c.idcartera, f.numero
                 HAVING saldo_pendiente > 0
                 ORDER BY c.fechadoc ASC
                 LIMIT ? OFFSET ?;
@@ -562,6 +566,7 @@ export class ReportsService {
                         c.idcartera,
                         c.tipodoc,
                         c.iddocumento,
+                        co.numero,
                         c.fechadoc,
                         c.fechacuota,
                         c.idtercero,
@@ -577,12 +582,15 @@ export class ReportsService {
                     INNER JOIN terceros t ON t.idtercero = c.idtercero
                     INNER JOIN almacenes a ON a.idalmacen = c.idalmacen
                     LEFT JOIN detcartera dc ON dc.idcartera = c.idcartera
+                    LEFT JOIN compras co 
+                    ON co.idcompra = c.iddocumento
+                    AND c.tipodoc = 'COMPRA'
                     WHERE
                         c.idalmacen = ?
                         AND c.fechadoc BETWEEN ? AND ?
                         AND c.tipodoc IN ('COMPRA')
                         AND c.tipocartera = 2
-                    GROUP BY c.idcartera
+                    GROUP BY c.idcartera, co.numero
                     HAVING saldo_pendiente > 0
                     ORDER BY c.fechadoc ASC
                     LIMIT ? OFFSET ?;
