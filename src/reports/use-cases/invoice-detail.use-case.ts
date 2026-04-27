@@ -49,11 +49,10 @@ export class InvoiceDetailUseCase {
 
     private getSummary(list: Array<any>, paymentMethods: Array<any>): TSummary {
 
-
         return list.reduce<TSummary>((acc, item) => {
             const _subtotal = Number(item.subtotal || 0);
             let _cost = Number(0);
-            _cost += item.total_cost;
+            _cost += item.total_costo;
             acc.subtotal = item.subtotal;
             acc.totalSale = item.valortotal;
             acc.valueAddedTax = item.valimpuesto;
