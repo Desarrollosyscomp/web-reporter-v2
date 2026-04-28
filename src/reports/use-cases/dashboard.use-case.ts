@@ -16,6 +16,15 @@ export type TRange = {
 
 type TSalesDay = {
     totalSales: number;
+    warehouses: Array<{
+        idalmacen: number;
+        nomalmacen: string;
+        total: number;
+        cantfact: number;
+        subtotal: number;
+        ivaimp: number;
+        costoacum: number;
+    }>;
 }
 type TDashboardData = {
     salesDay: TSalesDay;
@@ -34,9 +43,13 @@ type TReceivablePortfolio = {
 
 type TCumulativeSales = {
     date: string;
+    idalmacen: number;
     totalSales: number;
     totalProducts: number;
     invoiceQuantity: number;
+    totalCosts: number;
+    returns: number;
+    salesMinusReturns: number;
 }
 
 export class DashboardUseCase {
@@ -94,10 +107,22 @@ export class DashboardUseCase {
     }
 
     private totalSales(data: any[]): TSalesDay {
-        return data.reduce<TSalesDay>((acc, item) => {
-            acc.totalSales += item.total;
-            return acc;
-        }, { totalSales: 0 })
+        const warehouses = data.map(item => ({
+            idalmacen: item.idalmacen,
+            nomalmacen: item.nomalmacen.trim(),
+            total: item.total,
+            cantfact: item.cantfact,
+            subtotal: item.subtotal,
+            ivaimp: item.ivaimp,
+            costoacum: item.costoacum
+        }));
+        
+        const totalSales = data.reduce((acc, item) => acc + item.total, 0);
+        
+        return {
+            totalSales,
+            warehouses
+        };
     }
 
     private payablePortfolio(data: any[]): TPayaablePortfolio {
@@ -120,9 +145,13 @@ export class DashboardUseCase {
         return data.reduce<TCumulativeSales[]>((acc, item) => {
             acc.push({
                 date: item.fecha,
+                idalmacen: item.idalmacen,
                 totalSales: Number(item.totalSales || 0),
                 totalProducts: Number(item.totalProducts || 0),
-                invoiceQuantity: Number(item.invoiceQuantity || 0)
+                invoiceQuantity: Number(item.invoiceQuantity || 0),
+                totalCosts: Number(item.totalCosts || 0),
+                returns: Number(item.returns || 0),
+                salesMinusReturns: Number(item.salesMinusReturns || 0)
             });
             return acc;
         }, [] as TCumulativeSales[])

@@ -43,11 +43,8 @@ export class CumulativeSalesUseCase {
     }
 
     private parseResponse(summary: any): TSummary {
-        // Calcular utilidad como ventas netas (salesMinusReturns) menos costos totales
-        // Nota: Idealmente, los costos de devoluciones deberían restarse de totalCosts
-        // pero como no tenemos esa información en la base de datos, usamos este cálculo
         let _profit = summary.salesMinusReturns - summary.totalCosts;
-        
+       
         let _summary: TSummary = {
             subtotal: summary.subtotal,
             totalSales: summary.totalSales,

@@ -8,6 +8,18 @@ type TSummary = {
     totalInvoices: number;
     totalCost: number;
     totalProfit: number;
+    totalReturns: number;
+    warehouses: Array<{
+        idalmacen: number;
+        nomalmacen: string;
+        total: number;
+        cantfact: number;
+        subtotal: number;
+        ivaimp: number;
+        costoacum: number;
+        valordev: number;
+        totalNeto: number;
+    }>;
 }
 export class SalesDayUseCase {
     public constructor(private readonly reportsService: ReportsService) { }
@@ -29,23 +41,43 @@ export class SalesDayUseCase {
     }
 
     private parseResponse(data: Array<any>): TSummary {
+        const warehouses = data.map(element => ({
+            idalmacen: element.idalmacen,
+            nomalmacen: element.nomalmacen.trim(),
+            total: element.total,
+            cantfact: element.cantfact,
+            subtotal: element.subtotal,
+            ivaimp: element.ivaimp,
+            costoacum: element.costoacum,
+            valordev: element.valordev || 0,
+            totalNeto: element.total - (element.valordev || 0)
+        }));
 
-        return data.reduce<TSummary>((acc, element) => {
-            acc.totalSales += element.total;
+        const summary = data.reduce((acc, element) => {
+            const valordev = element.valordev || 0;
+            const totalNeto = element.total - valordev;
+            const subtotalNeto = element.subtot - valordev;
+            
+            acc.totalSales += totalNeto;
             acc.totalProducts += element.prodvendid;
             acc.totalInvoices += element.cantfact;
             acc.totalCost += element.costoacum;
-            acc.totalProfit += element.subtot - element.costoacum;
+            acc.totalProfit += subtotalNeto - element.costoacum;
+            acc.totalReturns += valordev;
             return acc;
         }, {
             totalSales: 0,
             totalProducts: 0,
             totalInvoices: 0,
             totalCost: 0,
-            totalProfit: 0
+            totalProfit: 0,
+            totalReturns: 0
         });
 
-
+        return {
+            ...summary,
+            warehouses
+        };
     }
 
 }
