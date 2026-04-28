@@ -788,9 +788,9 @@ export class ReportsService {
             const { init: summary_init, end: summary_end } = summary_range
             const { from: weekly_from, to: weekly_to } = weekly_range
             const cumulativeSalesParams = [
-                weekly_from, weekly_to,
-                weekly_from, weekly_to,
-                weekly_from, weekly_to
+                weekly_from, weekly_to, 0, 0,
+                weekly_from, weekly_to, 0, 0,
+                weekly_from, weekly_to, 0, 0
             ];
             const salesDayParam = [summary_init];
             const payableParam = [weekly_from, weekly_to];
@@ -799,6 +799,17 @@ export class ReportsService {
                             f.fecha,
                             f.idalmacen,
                             SUM(f.valortotal) AS total,
+                            COUNT(DISTINCT f.idfactura) AS cantfact,
+                            SUM(f.valretenciones) AS retencion,
+                            SUM(f.valimpuesto) AS ivaimp,
+                            SUM(f.subtotal) AS subtot,
+                            SUM(f.valdescuentos) AS sumdesc,
+                            SUM(f.otrosimpuestos) AS otrosimpuestos,
+                            SUM(f.impuestoinc) AS impuestoinc,
+                            IFNULL(SUM(o.propina), 0) AS valpropina,
+                            IFNULL(SUM(dv.valordev), 0) AS valordev,
+                            IFNULL(SUM(df.cantidad), 0) AS prodvendid,
+                            IFNULL(SUM(p.ultcosto * df.cantidad), 0) AS costoacum,
                             SUM(f.valortotal) + IFNULL(SUM(o.propina), 0) AS totalconprop,
                             alm.nomalmacen
                         FROM facturas f
@@ -914,8 +925,8 @@ export class ReportsService {
                         AND a.estado = 0
                         GROUP BY a.idalmacen, a.fecha
                     ) p ON p.fecha = e.fecha AND p.idalmacen = e.idalmacen
-                    GROUP BY e.fecha
-                    ORDER BY e.fecha ASC
+                    GROUP BY e.fecha, e.idalmacen
+                    ORDER BY e.fecha ASC, e.idalmacen
                     `;
             const [salesDayRows, payableRows, receivablePortfolioRows, cumulativeSalesRows] = await Promise.all([
                 connection.query(salesDayQuery, salesDayParam),
