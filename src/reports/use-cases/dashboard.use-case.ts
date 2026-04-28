@@ -24,6 +24,9 @@ type TSalesDay = {
         subtotal: number;
         ivaimp: number;
         costoacum: number;
+        valordev: number;
+        totalNeto: number;
+        subtotalNeto: number;
     }>;
 }
 type TDashboardData = {
@@ -107,17 +110,29 @@ export class DashboardUseCase {
     }
 
     private totalSales(data: any[]): TSalesDay {
-        const warehouses = data.map(item => ({
-            idalmacen: item.idalmacen,
-            nomalmacen: item.nomalmacen.trim(),
-            total: item.total,
-            cantfact: item.cantfact,
-            subtotal: item.subtotal,
-            ivaimp: item.ivaimp,
-            costoacum: item.costoacum
-        }));
+        const warehouses = data.map(item => {
+            const valordev = item.valordev || 0;
+            const totalNeto = item.total - valordev;
+            const subtotalNeto = item.subtot - valordev;
+            
+            return {
+                idalmacen: item.idalmacen,
+                nomalmacen: item.nomalmacen.trim(),
+                total: item.total,
+                cantfact: item.cantfact,
+                subtotal: item.subtotal,
+                ivaimp: item.ivaimp,
+                costoacum: item.costoacum,
+                valordev: valordev,
+                totalNeto: totalNeto,
+                subtotalNeto: subtotalNeto
+            };
+        });
         
-        const totalSales = data.reduce((acc, item) => acc + item.total, 0);
+        const totalSales = data.reduce((acc, item) => {
+            const valordev = item.valordev || 0;
+            return acc + (item.total - valordev);
+        }, 0);
         
         return {
             totalSales,
