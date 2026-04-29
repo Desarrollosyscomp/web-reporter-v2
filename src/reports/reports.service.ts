@@ -21,24 +21,16 @@ export class ReportsService {
             SUM(f.valdescuentos) AS sumdesc,
             SUM(f.otrosimpuestos) AS otrosimpuestos,
             SUM(f.impuestoinc) AS impuestoinc,
-            IFNULL(SUM(o.propina), 0) AS valpropina,
-            IFNULL(SUM(dv.valordev), 0) AS valordev,
-            IFNULL(SUM(df.cantidad), 0) AS prodvendid,
-            IFNULL(SUM(p.ultcosto * df.cantidad), 0) AS costoacum,
-            SUM(f.valortotal) + IFNULL(SUM(o.propina), 0) AS totalconprop,
+            IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
+            IFNULL((SELECT SUM(dv.valordev) FROM devventas dv WHERE dv.idfactura = f.idfactura), 0) AS valordev,
+            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura = f.idfactura), 0) AS prodvendid,
+            IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura = f.idfactura), 0) AS costoacum,
+            SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
             alm.nomalmacen
         FROM facturas f
         INNER JOIN almacenes alm
             ON f.idalmacen = alm.idalmacen
             AND alm.idempresa = 1
-        LEFT JOIN ordenes o
-            ON f.idfactura = o.idfactura
-        LEFT JOIN devventas dv
-            ON f.idfactura = dv.idfactura
-        LEFT JOIN detfacturas df
-            ON f.idfactura = df.idfactura
-        LEFT JOIN productos p
-            ON df.idproducto = p.idproducto
         WHERE
             f.fecha = ?
             AND f.estado = 0
@@ -72,17 +64,24 @@ export class ReportsService {
 
             const query = `SELECT idfactura, numero, fecha, subtotal, valimpuesto, valortotal, valdescuentos, hora, almacenes.idalmacen, almacenes.nomalmacen,  estado
             FROM facturas
-            LEFT JOIN almacenes ON (facturas.idalmacen = almacenes.idalmacen)
+            LEFT JOIN almacenes ON (facturas.idalmacen = almacenes.idalmacen AND almacenes.idempresa = 1)
             WHERE fecha = ? AND almacenes.idalmacen = ? AND estado = 0
             LIMIT ? OFFSET ?
             `;
             const summaryQuery = `
             SELECT 
-            COALESCE(SUM(subtotal),0) as subtotal,
-            COALESCE(SUM(valimpuesto),0) as total_impuestos,
-            COALESCE(SUM(valortotal),0) as total_ventas
-            FROM facturas
-            WHERE fecha = ? AND idalmacen = ? AND estado = 0
+            COALESCE(SUM(f.subtotal),0) as subtotal,
+            COALESCE(SUM(f.valimpuesto),0) as total_impuestos,
+            COALESCE(SUM(f.valortotal),0) as total_ventas,
+            COALESCE(SUM(f.valretenciones),0) as retencion,
+            COALESCE(SUM(f.valdescuentos),0) as sumdesc,
+            COALESCE(SUM(f.otrosimpuestos),0) as otrosimpuestos,
+            COALESCE(SUM(f.impuestoinc),0) as impuestoinc,
+            IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
+            SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop
+            FROM facturas f
+            INNER JOIN almacenes alm ON f.idalmacen = alm.idalmacen AND alm.idempresa = 1
+            WHERE f.fecha = ? AND f.idalmacen = ? AND f.estado = 0
             `;
 
             const paymentMethodsQuery = `
@@ -93,6 +92,7 @@ export class ReportsService {
             FROM cuotasfactura cf
             INNER JOIN formaspago fp ON cf.idpago = fp.idpago
             INNER JOIN facturas f ON cf.idfactura = f.idfactura
+            INNER JOIN almacenes alm ON f.idalmacen = alm.idalmacen AND alm.idempresa = 1
             WHERE f.fecha = ? 
             AND f.idalmacen = ? 
             AND f.estado = 0
@@ -101,8 +101,9 @@ export class ReportsService {
             `;
             const countQuery = `
             SELECT COUNT(*) as total 
-            FROM facturas 
-            WHERE fecha = ? AND idalmacen = ? AND estado = 0
+            FROM facturas f
+            INNER JOIN almacenes alm ON f.idalmacen = alm.idalmacen AND alm.idempresa = 1
+            WHERE f.fecha = ? AND f.idalmacen = ? AND f.estado = 0
             `;
             const params = [date, warehouse_id, limit, offset];
             const countParams = [date, warehouse_id];
@@ -806,24 +807,16 @@ export class ReportsService {
                             SUM(f.valdescuentos) AS sumdesc,
                             SUM(f.otrosimpuestos) AS otrosimpuestos,
                             SUM(f.impuestoinc) AS impuestoinc,
-                            IFNULL(SUM(o.propina), 0) AS valpropina,
-                            IFNULL(SUM(dv.valordev), 0) AS valordev,
-                            IFNULL(SUM(df.cantidad), 0) AS prodvendid,
-                            IFNULL(SUM(p.ultcosto * df.cantidad), 0) AS costoacum,
-                            SUM(f.valortotal) + IFNULL(SUM(o.propina), 0) AS totalconprop,
+                            IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
+                            IFNULL((SELECT SUM(dv.valordev) FROM devventas dv WHERE dv.idfactura = f.idfactura), 0) AS valordev,
+                            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura = f.idfactura), 0) AS prodvendid,
+                            IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura = f.idfactura), 0) AS costoacum,
+                            SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
                             alm.nomalmacen
                         FROM facturas f
                         INNER JOIN almacenes alm
                             ON f.idalmacen = alm.idalmacen
                             AND alm.idempresa = 1
-                        LEFT JOIN ordenes o
-                            ON f.idfactura = o.idfactura
-                        LEFT JOIN devventas dv
-                            ON f.idfactura = dv.idfactura
-                        LEFT JOIN detfacturas df
-                            ON f.idfactura = df.idfactura
-                        LEFT JOIN productos p
-                            ON df.idproducto = p.idproducto
                         WHERE
                             f.fecha = ?
                             AND f.estado = 0
