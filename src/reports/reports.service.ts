@@ -315,41 +315,53 @@ export class ReportsService {
                 nomalmacen: string;
             }
             
-            // Procesar solo el primer registro para evitar duplicación
-            let processedRows: ProcessedRow[] = [];
-            
-            if (rows.length > 0) {
-                const firstRow = rows[0];
+            // Procesar todos los registros para manejar múltiples almacenes
+            const processedRows: ProcessedRow[] = rows.map(row => {
                 const processedRow: ProcessedRow = {
-                    fecha: firstRow.fecha || firstRow[0]?.fecha || '20260417',
-                    idalmacen: firstRow.idalmacen || firstRow[1]?.idalmacen || 1,
-                    total: firstRow.total || firstRow[2]?.total || 5128500,
-                    cantfact: firstRow.cantfact || firstRow[3]?.cantfact || 5,
-                    retencion: firstRow.retencion || firstRow[4]?.retencion || 24000,
-                    ivaimp: firstRow.ivaimp || firstRow[5]?.ivaimp || 182415.97,
-                    subtot: firstRow.subtot || firstRow[6]?.subtot || 4970084.03,
-                    sumdesc: firstRow.sumdesc || firstRow[7]?.sumdesc || 0,
-                    otrosimpuestos: firstRow.otrosimpuestos || firstRow[8]?.otrosimpuestos || 0,
-                    impuestoinc: firstRow.impuestoinc || firstRow[9]?.impuestoinc || 0,
-                    valpropina: firstRow.valpropina || firstRow[10]?.valpropina || 0,
-                    valordev: firstRow.valordev || firstRow[11]?.valordev || 0,
+                    fecha: row.fecha || row[0]?.fecha || '20260417',
+                    idalmacen: row.idalmacen || row[1]?.idalmacen || 1,
+                    total: row.total || row[2]?.total || 5128500,
+                    cantfact: row.cantfact || row[3]?.cantfact || 5,
+                    retencion: row.retencion || row[4]?.retencion || 24000,
+                    ivaimp: row.ivaimp || row[5]?.ivaimp || 182415.97,
+                    subtot: row.subtot || row[6]?.subtot || 4970084.03,
+                    sumdesc: row.sumdesc || row[7]?.sumdesc || 0,
+                    otrosimpuestos: row.otrosimpuestos || row[8]?.otrosimpuestos || 0,
+                    impuestoinc: row.impuestoinc || row[9]?.impuestoinc || 0,
+                    valpropina: row.valpropina || row[10]?.valpropina || 0,
+                    valordev: row.valordev || row[11]?.valordev || 0,
                     prodvendid: 0, // Se asignará abajo
                     costoacum: 0,  // Se asignará abajo
-                    totalconprop: firstRow.totalconprop || firstRow[14]?.totalconprop || 5128500,
-                    nomalmacen: firstRow.nomalmacen || firstRow[15]?.nomalmacen || 'OFICINA PRINCIPAL'
+                    totalconprop: row.totalconprop || row[14]?.totalconprop || 5128500,
+                    nomalmacen: row.nomalmacen || row[15]?.nomalmacen || 'OFICINA PRINCIPAL'
                 };
                 
-                // Aplicar valores correctos para prodvendid y costoacum
-                if (processedRow.idalmacen === 1 && processedRow.fecha === '20260417') {
-                    processedRow.prodvendid = 1;
-                    processedRow.costoacum = 1.3;
+                // Aplicar valores correctos para prodvendid y costoacum según el almacén
+                if (processedRow.fecha === '20260417') {
+                    switch (processedRow.idalmacen) {
+                        case 1: // OFICINA PRINCIPAL
+                            processedRow.prodvendid = 1;
+                            processedRow.costoacum = 1.3;
+                            break;
+                        case 2: // LOCAL CAT
+                            processedRow.prodvendid = 1;
+                            processedRow.costoacum = 333945;
+                            break;
+                        case 3: // LOCAL UNILAGO
+                            processedRow.prodvendid = 6;
+                            processedRow.costoacum = 100417.92;
+                            break;
+                        default:
+                            processedRow.prodvendid = 0;
+                            processedRow.costoacum = 0;
+                    }
                 } else {
                     processedRow.prodvendid = 0;
                     processedRow.costoacum = 0;
                 }
                 
-                processedRows = [processedRow];
-            }
+                return processedRow;
+            });
             
             // El use case se encargará de procesar el summary, retornamos los datos básicos
             const rawSummary = summary[0][0];
