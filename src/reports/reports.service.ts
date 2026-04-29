@@ -23,8 +23,8 @@ export class ReportsService {
             SUM(f.impuestoinc) AS impuestoinc,
             IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
             IFNULL((SELECT SUM(dv.valordev) FROM devventas dv WHERE dv.idfactura = f.idfactura), 0) AS valordev,
-            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura = f.idfactura), 0) AS prodvendid,
-            IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura = f.idfactura), 0) AS costoacum,
+            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura = f.idfactura), 0) - IFNULL((SELECT SUM(dd.cantidad) FROM devventas dv INNER JOIN detdevventas dd ON dv.iddevventas = dd.iddevventas WHERE dv.idfactura = f.idfactura), 0) AS prodvendid,
+            IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura = f.idfactura), 0) - IFNULL((SELECT SUM(dd.costo * dd.cantidad) FROM devventas dv INNER JOIN detdevventas dd ON dv.iddevventas = dd.iddevventas WHERE dv.idfactura = f.idfactura), 0) AS costoacum,
             SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
             alm.nomalmacen
         FROM facturas f
@@ -192,7 +192,7 @@ export class ReportsService {
                 IFNULL(p.prodvendid, 0) - IFNULL(qd.cantdevoluciones, 0) AS prodvendid,
                 e.subtot,
                 e.ivaimp,
-                IFNULL(p.costoacum, 0) AS costoacum,
+                IFNULL(p.costoacum, 0) - IFNULL(cd.costodevoluciones, 0) AS costoacum,
                 e.sumdesc,
                 e.total,
                 e.retencion,
@@ -215,11 +215,10 @@ export class ReportsService {
                     SUM(a.valimpuesto) AS ivaimp,
                     SUM(a.subtotal) AS subtot,
                     SUM(a.valdescuentos) AS sumdesc,
-                    SUM(o.propina) AS valpropina,
+                    IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = a.idfactura), 0) AS valpropina,
                     SUM(a.otrosimpuestos) AS otrosimpuestos,
                     SUM(a.impuestoinc) AS impuestoinc
                 FROM facturas a
-                LEFT JOIN ordenes o ON o.idfactura = a.idfactura
                 WHERE a.fecha BETWEEN ? AND ?
                 AND a.estado = 0
                 AND (? = 0 OR a.idalmacen IN (?))
@@ -869,8 +868,8 @@ export class ReportsService {
                             SUM(f.impuestoinc) AS impuestoinc,
                             IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
                             IFNULL((SELECT SUM(dv.valordev) FROM devventas dv WHERE dv.idfactura = f.idfactura), 0) AS valordev,
-                            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura = f.idfactura), 0) AS prodvendid,
-                            IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura = f.idfactura), 0) AS costoacum,
+                            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura = f.idfactura), 0) - IFNULL((SELECT SUM(dd.cantidad) FROM devventas dv INNER JOIN detdevventas dd ON dv.iddevventas = dd.iddevventas WHERE dv.idfactura = f.idfactura), 0) AS prodvendid,
+                            IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura = f.idfactura), 0) - IFNULL((SELECT SUM(dd.costo * dd.cantidad) FROM devventas dv INNER JOIN detdevventas dd ON dv.iddevventas = dd.iddevventas WHERE dv.idfactura = f.idfactura), 0) AS costoacum,
                             SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
                             alm.nomalmacen
                         FROM facturas f
