@@ -25,9 +25,12 @@ export class CumulativeSalesUseCase {
 
     public async main(init_date: string, end_date: string, page: number, limit: number, warehouse_id: number): Promise<TUseCaseResponse> {
         const { data, error } = await this.reportsService.getCumulativeSales(init_date, end_date, page, limit, warehouse_id);
+        
+        // El service ya retorna datos limpios con rows[0]
         const list = data[0];
         const summary = this.parseResponse(data[2], list);
         const status = this.defineStatus(error || false);
+        
         return new UseCaseResponse<TCumilativeSalesRawData>({
             data: {
                 list: list,

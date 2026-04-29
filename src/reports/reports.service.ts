@@ -22,9 +22,9 @@ export class ReportsService {
             SUM(f.otrosimpuestos) AS otrosimpuestos,
             SUM(f.impuestoinc) AS impuestoinc,
             IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
-            IFNULL((SELECT SUM(dv.valordev) FROM devventas dv WHERE dv.idfactura = f.idfactura), 0) AS valordev,
-            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura = f.idfactura), 0) - IFNULL((SELECT SUM(dd.cantidad) FROM devventas dv INNER JOIN detdevventas dd ON dv.iddevventas = dd.iddevventas WHERE dv.idfactura = f.idfactura), 0) AS prodvendid,
-            IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura = f.idfactura), 0) - IFNULL((SELECT SUM(dd.costo * dd.cantidad) FROM devventas dv INNER JOIN detdevventas dd ON dv.iddevventas = dd.iddevventas WHERE dv.idfactura = f.idfactura), 0) AS costoacum,
+            IFNULL((SELECT SUM(dv.valordev) FROM devventas dv WHERE dv.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) AS valordev,
+            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) - IFNULL((SELECT SUM(dd.cantidad) FROM devventas dv INNER JOIN detdevventas dd ON dv.iddevventas = dd.iddevventas WHERE dv.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) AS prodvendid,
+            IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) - IFNULL((SELECT SUM(dd.costo * dd.cantidad) FROM devventas dv INNER JOIN detdevventas dd ON dv.iddevventas = dd.iddevventas WHERE dv.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) AS costoacum,
             SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
             alm.nomalmacen
         FROM facturas f
@@ -43,17 +43,8 @@ export class ReportsService {
       `;
             const [rows] = await connection.query(query, [init_date]);
             
-            // Post-procesamiento para asegurar devoluciones correctas
-            const processedSales = rows.map(row => {
-                const processedRow = {
-                    ...row,
-                    // Forzar la devolución para el almacén 2
-                    valordev: row.idalmacen === 2 ? 1600000 : (row.valordev || 0)
-                };
-                return processedRow;
-            });
-            
-            return { data: { sales: processedSales }, error: false };
+            // Retornar los datos directamente de la consulta SQL
+            return { data: { sales: rows }, error: false };
 
         } catch (error) {
             return { error: true, data: error.message };
@@ -210,9 +201,9 @@ export class ReportsService {
             SUM(f.otrosimpuestos) AS otrosimpuestos,
             SUM(f.impuestoinc) AS impuestoinc,
             IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
-            IFNULL((SELECT SUM(dv.valordev) FROM devventas dv WHERE dv.idfactura = f.idfactura), 0) AS valordev,
-            0 AS prodvendid,
-            0 AS costoacum,
+            IFNULL((SELECT SUM(dv.valordev) FROM devventas dv WHERE dv.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) AS valordev,
+            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) - IFNULL((SELECT SUM(dd.cantidad) FROM devventas dv INNER JOIN detdevventas dd ON dv.iddevventas = dd.iddevventas WHERE dv.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) AS prodvendid,
+            IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) - IFNULL((SELECT SUM(dd.costo * dd.cantidad) FROM devventas dv INNER JOIN detdevventas dd ON dv.iddevventas = dd.iddevventas WHERE dv.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) AS costoacum,
             SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
             alm.nomalmacen
         FROM facturas f
@@ -267,7 +258,7 @@ export class ReportsService {
                             SUM(f.otrosimpuestos) AS otrosimpuestos,
                             SUM(f.impuestoinc) AS impuestoinc,
                             IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
-                            IFNULL((SELECT SUM(dv.valordev) FROM devventas dv WHERE dv.idfactura = f.idfactura), 0) AS valordev,
+                            IFNULL((SELECT SUM(dv.valordev) FROM devventas dv WHERE dv.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) AS valordev,
                             0 AS prodvendid,
                             0 AS costoacum,
                             SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
@@ -305,115 +296,9 @@ export class ReportsService {
                 connection.query(summaryQuery, totalParams)
             ]);
             
-            // Post-procesamiento simple para calcular prodvendid y costoacum
-            // El driver MySQL retorna datos en formato crudo, necesitamos procesarlos
-            interface ProcessedRow {
-                fecha: string;
-                idalmacen: number;
-                total: number;
-                cantfact: number;
-                retencion: number;
-                ivaimp: number;
-                subtot: number;
-                sumdesc: number;
-                otrosimpuestos: number;
-                impuestoinc: number;
-                valpropina: number;
-                valordev: number;
-                prodvendid: number;
-                costoacum: number;
-                totalconprop: number;
-                nomalmacen: string;
-            }
-            
-            // Procesar todos los registros para manejar múltiples almacenes
-            // Usamos los datos correctos de sales-day como referencia
-            const referenceData = [
-                {
-                    idalmacen: 1,
-                    fecha: '20260417',
-                    total: 5128500,
-                    cantfact: 5,
-                    retencion: 24000,
-                    ivaimp: 182415.97,
-                    subtot: 4970084.03,
-                    sumdesc: 0,
-                    otrosimpuestos: 0,
-                    impuestoinc: 0,
-                    valpropina: 0,
-                    valordev: 0,
-                    totalconprop: 5128500,
-                    nomalmacen: 'OFICINA PRINCIPAL',
-                    prodvendid: 1,
-                    costoacum: 1.3
-                },
-                {
-                    idalmacen: 2,
-                    fecha: '20260417',
-                    total: 1495000,
-                    cantfact: 5,
-                    retencion: 0,
-                    ivaimp: 238697.49,
-                    subtot: 1256302.51,
-                    sumdesc: 0,
-                    otrosimpuestos: 0,
-                    impuestoinc: 0,
-                    valpropina: 0,
-                    valordev: 1600000,
-                    totalconprop: 1495000,
-                    nomalmacen: 'LOCAL CAT',
-                    prodvendid: 1,
-                    costoacum: 333945
-                },
-                {
-                    idalmacen: 3,
-                    fecha: '20260417',
-                    total: 204000,
-                    cantfact: 1,
-                    retencion: 0,
-                    ivaimp: 32571.43,
-                    subtot: 171428.57,
-                    sumdesc: 0,
-                    otrosimpuestos: 0,
-                    impuestoinc: 0,
-                    valpropina: 0,
-                    valordev: 0,
-                    totalconprop: 204000,
-                    nomalmacen: 'LOCAL UNILAGO',
-                    prodvendid: 6,
-                    costoacum: 100417.92
-                }
-            ];
-            
-            // Filtrar según warehouse_id (0 = todos, otro = específico)
-            const warehouseFilter = warehouse_id === 0 ? 
-                referenceData : 
-                referenceData.filter(item => item.idalmacen === warehouse_id);
-            
-            const processedRows: ProcessedRow[] = warehouseFilter.map(item => ({
-                fecha: item.fecha,
-                idalmacen: item.idalmacen,
-                total: item.total,
-                cantfact: item.cantfact,
-                retencion: item.retencion,
-                ivaimp: item.ivaimp,
-                subtot: item.subtot,
-                sumdesc: item.sumdesc,
-                otrosimpuestos: item.otrosimpuestos,
-                impuestoinc: item.impuestoinc,
-                valpropina: item.valpropina,
-                valordev: item.valordev,
-                prodvendid: item.prodvendid,
-                costoacum: item.costoacum,
-                totalconprop: item.totalconprop,
-                nomalmacen: item.nomalmacen
-            }));
-            
-            // El use case se encargará de procesar el summary, retornamos los datos básicos
-            const rawSummary = summary[0][0];
-            
+            // Retornar datos crudos de la consulta SQL - usar rows[0] para evitar metadatos binarios
             return {
-                data: [processedRows, count[0][0].total, rawSummary],
+                data: [rows[0], count[0][0].total, summary[0][0]],
                 error: false,
             };
         } catch (error: any) {
@@ -882,9 +767,9 @@ export class ReportsService {
                             SUM(f.otrosimpuestos) AS otrosimpuestos,
                             SUM(f.impuestoinc) AS impuestoinc,
                             IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
-                            IFNULL((SELECT SUM(dv.valordev) FROM devventas dv WHERE dv.idfactura = f.idfactura), 0) AS valordev,
-                            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura = f.idfactura), 0) - IFNULL((SELECT SUM(dd.cantidad) FROM devventas dv INNER JOIN detdevventas dd ON dv.iddevventas = dd.iddevventas WHERE dv.idfactura = f.idfactura), 0) AS prodvendid,
-                            IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura = f.idfactura), 0) - IFNULL((SELECT SUM(dd.costo * dd.cantidad) FROM devventas dv INNER JOIN detdevventas dd ON dv.iddevventas = dd.iddevventas WHERE dv.idfactura = f.idfactura), 0) AS costoacum,
+                            IFNULL((SELECT SUM(dv.valordev) FROM devventas dv WHERE dv.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) AS valordev,
+                            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) - IFNULL((SELECT SUM(dd.cantidad) FROM devventas dv INNER JOIN detdevventas dd ON dv.iddevventas = dd.iddevventas WHERE dv.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) AS prodvendid,
+                            IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) - IFNULL((SELECT SUM(dd.costo * dd.cantidad) FROM devventas dv INNER JOIN detdevventas dd ON dv.iddevventas = dd.iddevventas WHERE dv.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) AS costoacum,
                             SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
                             alm.nomalmacen
                         FROM facturas f
