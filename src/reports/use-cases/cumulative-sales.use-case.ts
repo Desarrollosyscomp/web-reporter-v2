@@ -26,8 +26,7 @@ export class CumulativeSalesUseCase {
     public async main(init_date: string, end_date: string, page: number, limit: number, warehouse_id: number): Promise<TUseCaseResponse> {
         const { data, error } = await this.reportsService.getCumulativeSales(init_date, end_date, page, limit, warehouse_id);
         
-        // El service ya retorna datos limpios con rows[0]
-        const list = data[0];
+        const list = Array.isArray(data[0]) ? data[0] : [];
         const summary = this.parseResponse(data[2], list);
         const status = this.defineStatus(error || false);
         
@@ -47,25 +46,16 @@ export class CumulativeSalesUseCase {
     }
 
     private parseResponse(summary: any, list: any[]): TSummary {
-        const totalProducts = list.reduce((sum: number, item: any) => sum + (item.prodvendid || 0), 0);
-        const totalCosts = list.reduce((sum: number, item: any) => sum + (item.costoacum || 0), 0);
-        
-        const totalSales = list.reduce((sum: number, item: any) => sum + (item.total || 0), 0);
-        const totalReturns = list.reduce((sum: number, item: any) => sum + (item.valordev || 0), 0);
-        const salesMinusReturns = totalSales - totalReturns;
-        
-        let _profit = salesMinusReturns - totalCosts;
-       
         let _summary: TSummary = {
             subtotal: summary.subtotal,
-            totalSales: totalSales,
-            totalProducts: totalProducts,
+            totalSales: Number(summary.totalSales || 0),
+            totalProducts: Number(summary.totalProducts || 0),
             invoiceQuantity: Number(summary.invoiceQuantity || 0),
-            totalTaxes: summary.totalTaxes,
-            totalCosts: totalCosts,
-            salesMinusReturns: salesMinusReturns,
-            returns: totalReturns,
-            profit: _profit
+            totalTaxes: Number(summary.totalTaxes || 0),
+            totalCosts: Number(summary.totalCosts || 0),
+            salesMinusReturns: Number(summary.salesMinusReturns || 0),
+            returns: Number(summary.returns || 0),
+            profit: Number(summary.salesMinusReturns || 0) - Number(summary.totalCosts || 0)
         }
         return _summary;
     }

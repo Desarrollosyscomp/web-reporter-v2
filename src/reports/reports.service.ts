@@ -239,12 +239,12 @@ export class ReportsService {
                         SELECT
                         COALESCE(SUM(subtot),0) AS subtotal,
                         COALESCE(SUM(total),0) AS totalSales,
-                        0 AS totalProducts,
+                        COALESCE(SUM(prodvendid),0) AS totalProducts,
                         COALESCE(SUM(cantfact),0) AS invoiceQuantity,
                         COALESCE(SUM(ivaimp),0) AS totalTaxes,
-                        0 AS totalCosts,
-                        0 AS returns,
-                        COALESCE(SUM(total),0) AS salesMinusReturns
+                        COALESCE(SUM(costoacum),0) AS totalCosts,
+                        COALESCE(SUM(valordev),0) AS returns,
+                        COALESCE(SUM(total),0) - COALESCE(SUM(valordev),0) AS salesMinusReturns
                     FROM (
                         SELECT
                             f.fecha,
@@ -259,8 +259,8 @@ export class ReportsService {
                             SUM(f.impuestoinc) AS impuestoinc,
                             IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
                             IFNULL((SELECT SUM(dv.valordev) FROM devventas dv WHERE dv.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) AS valordev,
-                            0 AS prodvendid,
-                            0 AS costoacum,
+                            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) - IFNULL((SELECT SUM(dd.cantidad) FROM devventas dv INNER JOIN detdevventas dd ON dv.iddevventas = dd.iddevventas WHERE dv.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) AS prodvendid,
+                            IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) - IFNULL((SELECT SUM(dd.costo * dd.cantidad) FROM devventas dv INNER JOIN detdevventas dd ON dv.iddevventas = dd.iddevventas WHERE dv.idfactura IN (SELECT f2.idfactura FROM facturas f2 WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0)), 0) AS costoacum,
                             SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
                             alm.nomalmacen
                         FROM facturas f
