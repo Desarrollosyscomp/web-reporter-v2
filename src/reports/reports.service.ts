@@ -189,7 +189,7 @@ export class ReportsService {
             const query = `SELECT 
                 e.fecha,
                 e.idalmacen,
-                IFNULL(p.prodvendid, 0) AS prodvendid,
+                IFNULL(p.prodvendid, 0) - IFNULL(qd.cantdevoluciones, 0) AS prodvendid,
                 e.subtot,
                 e.ivaimp,
                 IFNULL(p.costoacum, 0) AS costoacum,
@@ -202,7 +202,9 @@ export class ReportsService {
                 e.total + IFNULL(e.valpropina, 0) AS totalconprop,
                 almd.nomalmacen,
                 e.otrosimpuestos,
-                e.impuestoinc
+                e.impuestoinc,
+                IFNULL(cd.costodevoluciones, 0) AS costodevoluciones,
+                IFNULL(p.costoacum, 0) - IFNULL(cd.costodevoluciones, 0) AS costoneto
             FROM (
                 SELECT 
                     a.idalmacen,
@@ -249,6 +251,32 @@ export class ReportsService {
                 AND (? = 0 OR a.idalmacen IN (?))
                 GROUP BY a.idalmacen, a.fecha
             ) p ON p.fecha = e.fecha AND p.idalmacen = e.idalmacen
+            LEFT JOIN (
+                SELECT 
+                    a.idalmacen,
+                    a.fecha,
+                    SUM(dd.costo * dd.cantidad) AS costodevoluciones
+                FROM facturas a
+                JOIN devventas dv ON dv.idfactura = a.idfactura
+                JOIN detdevventas dd ON dd.iddevventas = dv.iddevventas
+                WHERE a.fecha BETWEEN ? AND ?
+                AND a.estado = 0
+                AND (? = 0 OR a.idalmacen IN (?))
+                GROUP BY a.idalmacen, a.fecha
+            ) cd ON cd.fecha = e.fecha AND cd.idalmacen = e.idalmacen
+            LEFT JOIN (
+                SELECT 
+                    a.idalmacen,
+                    a.fecha,
+                    SUM(dd.cantidad) AS cantdevoluciones
+                FROM facturas a
+                JOIN devventas dv ON dv.idfactura = a.idfactura
+                JOIN detdevventas dd ON dd.iddevventas = dv.iddevventas
+                WHERE a.fecha BETWEEN ? AND ?
+                AND a.estado = 0
+                AND (? = 0 OR a.idalmacen IN (?))
+                GROUP BY a.idalmacen, a.fecha
+            ) qd ON qd.fecha = e.fecha AND qd.idalmacen = e.idalmacen
             LEFT JOIN almacenes almd ON almd.idalmacen = e.idalmacen
             ORDER BY e.fecha DESC, e.idalmacen
             LIMIT ? OFFSET ?;          
@@ -269,10 +297,10 @@ export class ReportsService {
                         SELECT
                         COALESCE(SUM(e.subtot),0) AS subtotal,
                         COALESCE(SUM(e.total),0) AS totalSales,
-                        COALESCE(SUM(IFNULL(p.prodvendid,0)),0) AS totalProducts,
+                        COALESCE(SUM(IFNULL(p.prodvendid,0) - IFNULL(qd.cantdevoluciones,0)),0) AS totalProducts,
                         COALESCE(SUM(e.cantfact),0) AS invoiceQuantity,
                         COALESCE(SUM(e.ivaimp),0) AS totalTaxes,
-                        COALESCE(SUM(IFNULL(p.costoacum,0)),0) AS totalCosts,
+                        COALESCE(SUM(IFNULL(p.costoacum,0) - IFNULL(cd.costodevoluciones,0)),0) AS totalCosts,
                         COALESCE(SUM(IFNULL(d.valordev,0)),0) AS returns,
                         COALESCE(SUM(e.total - IFNULL(d.valordev,0)),0) AS salesMinusReturns
                     FROM (
@@ -317,8 +345,36 @@ export class ReportsService {
                         AND (? = 0 OR a.idalmacen IN (?))
                         GROUP BY a.idalmacen, a.fecha
                     ) p ON p.fecha = e.fecha AND p.idalmacen = e.idalmacen
+                    LEFT JOIN (
+                        SELECT 
+                            a.idalmacen,
+                            a.fecha,
+                            SUM(dd.costo * dd.cantidad) AS costodevoluciones
+                        FROM facturas a
+                        JOIN devventas dv ON dv.idfactura = a.idfactura
+                        JOIN detdevventas dd ON dd.iddevventas = dv.iddevventas
+                        WHERE a.fecha BETWEEN ? AND ?
+                        AND a.estado = 0
+                        AND (? = 0 OR a.idalmacen IN (?))
+                        GROUP BY a.idalmacen, a.fecha
+                    ) cd ON cd.fecha = e.fecha AND cd.idalmacen = e.idalmacen
+                    LEFT JOIN (
+                        SELECT 
+                            a.idalmacen,
+                            a.fecha,
+                            SUM(dd.cantidad) AS cantdevoluciones
+                        FROM facturas a
+                        JOIN devventas dv ON dv.idfactura = a.idfactura
+                        JOIN detdevventas dd ON dd.iddevventas = dv.iddevventas
+                        WHERE a.fecha BETWEEN ? AND ?
+                        AND a.estado = 0
+                        AND (? = 0 OR a.idalmacen IN (?))
+                        GROUP BY a.idalmacen, a.fecha
+                    ) qd ON qd.fecha = e.fecha AND qd.idalmacen = e.idalmacen
             `;
             const params = [
+                init_date, end_date, warehouse_id, warehouse_id,
+                init_date, end_date, warehouse_id, warehouse_id,
                 init_date, end_date, warehouse_id, warehouse_id,
                 init_date, end_date, warehouse_id, warehouse_id,
                 init_date, end_date, warehouse_id, warehouse_id,
@@ -331,6 +387,8 @@ export class ReportsService {
                 warehouse_id
             ];
             const totalParams = [
+                init_date, end_date, warehouse_id, warehouse_id,
+                init_date, end_date, warehouse_id, warehouse_id,
                 init_date, end_date, warehouse_id, warehouse_id,
                 init_date, end_date, warehouse_id, warehouse_id,
                 init_date, end_date, warehouse_id, warehouse_id
@@ -791,6 +849,8 @@ export class ReportsService {
             const cumulativeSalesParams = [
                 weekly_from, weekly_to, 0, 0,
                 weekly_from, weekly_to, 0, 0,
+                weekly_from, weekly_to, 0, 0,
+                weekly_from, weekly_to, 0, 0,
                 weekly_from, weekly_to, 0, 0
             ];
             const salesDayParam = [summary_init];
@@ -873,10 +933,10 @@ export class ReportsService {
                         e.fecha,
                         COALESCE(SUM(e.subtot),0) AS subtotal,
                         COALESCE(SUM(e.total),0) AS totalSales,
-                        COALESCE(SUM(IFNULL(p.prodvendid,0)),0) AS totalProducts,
+                        COALESCE(SUM(IFNULL(p.prodvendid,0) - IFNULL(qd.cantdevoluciones,0)),0) AS totalProducts,
                         COALESCE(SUM(e.cantfact),0) AS invoiceQuantity,
                         COALESCE(SUM(e.ivaimp),0) AS totalTaxes,
-                        COALESCE(SUM(IFNULL(p.costoacum,0)),0) AS totalCosts,
+                        COALESCE(SUM(IFNULL(p.costoacum,0) - IFNULL(cd.costodevoluciones,0)),0) AS totalCosts,
                         COALESCE(SUM(IFNULL(d.valordev,0)),0) AS returns,
                         COALESCE(SUM(e.total - IFNULL(d.valordev,0)),0) AS salesMinusReturns
                     FROM (
@@ -918,6 +978,30 @@ export class ReportsService {
                         AND a.estado = 0
                         GROUP BY a.idalmacen, a.fecha
                     ) p ON p.fecha = e.fecha AND p.idalmacen = e.idalmacen
+                    LEFT JOIN (
+                        SELECT 
+                            a.idalmacen,
+                            a.fecha,
+                            SUM(dd.costo * dd.cantidad) AS costodevoluciones
+                        FROM facturas a
+                        JOIN devventas dv ON dv.idfactura = a.idfactura
+                        JOIN detdevventas dd ON dd.iddevventas = dv.iddevventas
+                        WHERE a.fecha BETWEEN ? AND ?
+                        AND a.estado = 0
+                        GROUP BY a.idalmacen, a.fecha
+                    ) cd ON cd.fecha = e.fecha AND cd.idalmacen = e.idalmacen
+                    LEFT JOIN (
+                        SELECT 
+                            a.idalmacen,
+                            a.fecha,
+                            SUM(dd.cantidad) AS cantdevoluciones
+                        FROM facturas a
+                        JOIN devventas dv ON dv.idfactura = a.idfactura
+                        JOIN detdevventas dd ON dd.iddevventas = dv.iddevventas
+                        WHERE a.fecha BETWEEN ? AND ?
+                        AND a.estado = 0
+                        GROUP BY a.idalmacen, a.fecha
+                    ) qd ON qd.fecha = e.fecha AND qd.idalmacen = e.idalmacen
                     GROUP BY e.fecha, e.idalmacen
                     ORDER BY e.fecha ASC, e.idalmacen
                     `;
