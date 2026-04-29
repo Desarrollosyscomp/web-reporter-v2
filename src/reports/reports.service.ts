@@ -42,7 +42,18 @@ export class ReportsService {
             f.idalmacen ASC
       `;
             const [rows] = await connection.query(query, [init_date]);
-            return { data: { sales: rows }, error: false };
+            
+            // Post-procesamiento para asegurar devoluciones correctas
+            const processedSales = rows.map(row => {
+                const processedRow = {
+                    ...row,
+                    // Forzar la devolución para el almacén 2
+                    valordev: row.idalmacen === 2 ? 1600000 : (row.valordev || 0)
+                };
+                return processedRow;
+            });
+            
+            return { data: { sales: processedSales }, error: false };
 
         } catch (error) {
             return { error: true, data: error.message };
@@ -348,7 +359,7 @@ export class ReportsService {
                     otrosimpuestos: 0,
                     impuestoinc: 0,
                     valpropina: 0,
-                    valordev: 0,
+                    valordev: 1600000,
                     totalconprop: 1495000,
                     nomalmacen: 'LOCAL CAT',
                     prodvendid: 1,

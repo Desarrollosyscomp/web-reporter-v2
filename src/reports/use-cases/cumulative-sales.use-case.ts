@@ -47,17 +47,21 @@ export class CumulativeSalesUseCase {
         const totalProducts = list.reduce((sum: number, item: any) => sum + (item.prodvendid || 0), 0);
         const totalCosts = list.reduce((sum: number, item: any) => sum + (item.costoacum || 0), 0);
         
-        let _profit = summary.salesMinusReturns - totalCosts;
+        const totalSales = list.reduce((sum: number, item: any) => sum + (item.total || 0), 0);
+        const totalReturns = list.reduce((sum: number, item: any) => sum + (item.valordev || 0), 0);
+        const salesMinusReturns = totalSales - totalReturns;
+        
+        let _profit = salesMinusReturns - totalCosts;
        
         let _summary: TSummary = {
             subtotal: summary.subtotal,
-            totalSales: summary.totalSales,
+            totalSales: totalSales,
             totalProducts: totalProducts,
             invoiceQuantity: Number(summary.invoiceQuantity || 0),
             totalTaxes: summary.totalTaxes,
             totalCosts: totalCosts,
-            salesMinusReturns: summary.salesMinusReturns,
-            returns: summary.returns,
+            salesMinusReturns: salesMinusReturns,
+            returns: totalReturns,
             profit: _profit
         }
         return _summary;
