@@ -25,11 +25,12 @@ export class CumulativeSalesUseCase {
 
     public async main(init_date: string, end_date: string, page: number, limit: number, warehouse_id: number): Promise<TUseCaseResponse> {
         const { data, error } = await this.reportsService.getCumulativeSales(init_date, end_date, page, limit, warehouse_id);
-        const summary = this.parseResponse(data[2]);
+        const list = data[0];
+        const summary = this.parseResponse(data[2], list);
         const status = this.defineStatus(error || false);
         return new UseCaseResponse<TCumilativeSalesRawData>({
             data: {
-                list: data[0],
+                list: list,
                 count: data[1],
                 summary,
             },
@@ -42,16 +43,19 @@ export class CumulativeSalesUseCase {
         return error ? 0 : 1;
     }
 
-    private parseResponse(summary: any): TSummary {
-        let _profit = summary.salesMinusReturns - summary.totalCosts;
+    private parseResponse(summary: any, list: any[]): TSummary {
+        const totalProducts = list.reduce((sum: number, item: any) => sum + (item.prodvendid || 0), 0);
+        const totalCosts = list.reduce((sum: number, item: any) => sum + (item.costoacum || 0), 0);
+        
+        let _profit = summary.salesMinusReturns - totalCosts;
        
         let _summary: TSummary = {
             subtotal: summary.subtotal,
             totalSales: summary.totalSales,
-            totalProducts: summary.totalProducts,
+            totalProducts: totalProducts,
             invoiceQuantity: Number(summary.invoiceQuantity || 0),
             totalTaxes: summary.totalTaxes,
-            totalCosts: summary.totalCosts,
+            totalCosts: totalCosts,
             salesMinusReturns: summary.salesMinusReturns,
             returns: summary.returns,
             profit: _profit
