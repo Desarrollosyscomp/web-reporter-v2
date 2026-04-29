@@ -9,7 +9,7 @@ export class ReportsService {
         const connection = await this.db.getConnection();
 
         try {
-            const query = ` 
+            const query = `
         SELECT
             f.fecha,
             f.idalmacen,
@@ -23,15 +23,15 @@ export class ReportsService {
             SUM(f.impuestoinc) AS impuestoinc,
             IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
             IFNULL((SELECT SUM(dv.valordev) FROM devventas dv INNER JOIN facturas f2 ON dv.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS valordev,
-            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df INNER JOIN facturas f2 ON df.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS prodvendid,
-            IFNULL((SELECT SUM(df.costoprod * df.cantidad) FROM detfacturas df INNER JOIN facturas f2 ON df.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS costoacum,
+            (SELECT COALESCE(SUM(df.cantidad), 0) FROM detfacturas df WHERE df.idfactura = f.idfactura) AS prodvendid,
+            (SELECT COALESCE(SUM(df.costoprod * df.cantidad), 0) FROM detfacturas df WHERE df.idfactura = f.idfactura) AS costoacum,
             SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
             alm.nomalmacen
         FROM facturas f
         INNER JOIN almacenes alm
             ON f.idalmacen = alm.idalmacen
             AND alm.idempresa = 1
-                WHERE
+                        WHERE
             f.fecha = ?
             AND f.estado = 0
         GROUP BY
@@ -202,15 +202,15 @@ export class ReportsService {
             SUM(f.impuestoinc) AS impuestoinc,
             IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
             IFNULL((SELECT SUM(dv.valordev) FROM devventas dv INNER JOIN facturas f2 ON dv.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS valordev,
-            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df INNER JOIN facturas f2 ON df.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS prodvendid,
-            IFNULL((SELECT SUM(df.costoprod * df.cantidad) FROM detfacturas df INNER JOIN facturas f2 ON df.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS costoacum,
+            (SELECT COALESCE(SUM(df.cantidad), 0) FROM detfacturas df WHERE df.idfactura = f.idfactura) AS prodvendid,
+            (SELECT COALESCE(SUM(df.costoprod * df.cantidad), 0) FROM detfacturas df WHERE df.idfactura = f.idfactura) AS costoacum,
             SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
             alm.nomalmacen
         FROM facturas f
         INNER JOIN almacenes alm
             ON f.idalmacen = alm.idalmacen
             AND alm.idempresa = 1
-                WHERE
+                        WHERE
             f.fecha BETWEEN ? AND ?
             AND f.estado = 0
             AND (? = 0 OR f.idalmacen IN (?))
@@ -295,7 +295,6 @@ export class ReportsService {
                 connection.query(summaryQuery, totalParams)
             ]);
             
-            // Retornar datos crudos de la consulta SQL - usar rows[0] para evitar metadatos binarios
             return {
                 data: [rows[0], count[0][0].total, summary[0][0]],
                 error: false,
