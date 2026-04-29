@@ -23,8 +23,8 @@ export class ReportsService {
             SUM(f.impuestoinc) AS impuestoinc,
             IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
             IFNULL((SELECT SUM(dv.valordev) FROM devventas dv INNER JOIN facturas f2 ON dv.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS valordev,
-            0 AS prodvendid,
-            0 AS costoacum,
+            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df INNER JOIN facturas f2 ON df.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS prodvendid,
+            IFNULL((SELECT SUM(df.costoprod * df.cantidad) FROM detfacturas df INNER JOIN facturas f2 ON df.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS costoacum,
             SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
             alm.nomalmacen
         FROM facturas f
@@ -202,8 +202,8 @@ export class ReportsService {
             SUM(f.impuestoinc) AS impuestoinc,
             IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
             IFNULL((SELECT SUM(dv.valordev) FROM devventas dv INNER JOIN facturas f2 ON dv.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS valordev,
-            0 AS prodvendid,
-            0 AS costoacum,
+            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df INNER JOIN facturas f2 ON df.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS prodvendid,
+            IFNULL((SELECT SUM(df.costoprod * df.cantidad) FROM detfacturas df INNER JOIN facturas f2 ON df.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS costoacum,
             SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
             alm.nomalmacen
         FROM facturas f
