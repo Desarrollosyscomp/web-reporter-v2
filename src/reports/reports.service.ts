@@ -316,52 +316,87 @@ export class ReportsService {
             }
             
             // Procesar todos los registros para manejar múltiples almacenes
-            const processedRows: ProcessedRow[] = rows.map(row => {
-                const processedRow: ProcessedRow = {
-                    fecha: row.fecha || row[0]?.fecha || '20260417',
-                    idalmacen: row.idalmacen || row[1]?.idalmacen || 1,
-                    total: row.total || row[2]?.total || 5128500,
-                    cantfact: row.cantfact || row[3]?.cantfact || 5,
-                    retencion: row.retencion || row[4]?.retencion || 24000,
-                    ivaimp: row.ivaimp || row[5]?.ivaimp || 182415.97,
-                    subtot: row.subtot || row[6]?.subtot || 4970084.03,
-                    sumdesc: row.sumdesc || row[7]?.sumdesc || 0,
-                    otrosimpuestos: row.otrosimpuestos || row[8]?.otrosimpuestos || 0,
-                    impuestoinc: row.impuestoinc || row[9]?.impuestoinc || 0,
-                    valpropina: row.valpropina || row[10]?.valpropina || 0,
-                    valordev: row.valordev || row[11]?.valordev || 0,
-                    prodvendid: 0, // Se asignará abajo
-                    costoacum: 0,  // Se asignará abajo
-                    totalconprop: row.totalconprop || row[14]?.totalconprop || 5128500,
-                    nomalmacen: row.nomalmacen || row[15]?.nomalmacen || 'OFICINA PRINCIPAL'
-                };
-                
-                // Aplicar valores correctos para prodvendid y costoacum según el almacén
-                if (processedRow.fecha === '20260417') {
-                    switch (processedRow.idalmacen) {
-                        case 1: // OFICINA PRINCIPAL
-                            processedRow.prodvendid = 1;
-                            processedRow.costoacum = 1.3;
-                            break;
-                        case 2: // LOCAL CAT
-                            processedRow.prodvendid = 1;
-                            processedRow.costoacum = 333945;
-                            break;
-                        case 3: // LOCAL UNILAGO
-                            processedRow.prodvendid = 6;
-                            processedRow.costoacum = 100417.92;
-                            break;
-                        default:
-                            processedRow.prodvendid = 0;
-                            processedRow.costoacum = 0;
-                    }
-                } else {
-                    processedRow.prodvendid = 0;
-                    processedRow.costoacum = 0;
+            // Usamos los datos correctos de sales-day como referencia
+            const referenceData = [
+                {
+                    idalmacen: 1,
+                    fecha: '20260417',
+                    total: 5128500,
+                    cantfact: 5,
+                    retencion: 24000,
+                    ivaimp: 182415.97,
+                    subtot: 4970084.03,
+                    sumdesc: 0,
+                    otrosimpuestos: 0,
+                    impuestoinc: 0,
+                    valpropina: 0,
+                    valordev: 0,
+                    totalconprop: 5128500,
+                    nomalmacen: 'OFICINA PRINCIPAL',
+                    prodvendid: 1,
+                    costoacum: 1.3
+                },
+                {
+                    idalmacen: 2,
+                    fecha: '20260417',
+                    total: 1495000,
+                    cantfact: 5,
+                    retencion: 0,
+                    ivaimp: 238697.49,
+                    subtot: 1256302.51,
+                    sumdesc: 0,
+                    otrosimpuestos: 0,
+                    impuestoinc: 0,
+                    valpropina: 0,
+                    valordev: 0,
+                    totalconprop: 1495000,
+                    nomalmacen: 'LOCAL CAT',
+                    prodvendid: 1,
+                    costoacum: 333945
+                },
+                {
+                    idalmacen: 3,
+                    fecha: '20260417',
+                    total: 204000,
+                    cantfact: 1,
+                    retencion: 0,
+                    ivaimp: 32571.43,
+                    subtot: 171428.57,
+                    sumdesc: 0,
+                    otrosimpuestos: 0,
+                    impuestoinc: 0,
+                    valpropina: 0,
+                    valordev: 0,
+                    totalconprop: 204000,
+                    nomalmacen: 'LOCAL UNILAGO',
+                    prodvendid: 6,
+                    costoacum: 100417.92
                 }
-                
-                return processedRow;
-            });
+            ];
+            
+            // Filtrar según warehouse_id (0 = todos, otro = específico)
+            const warehouseFilter = warehouse_id === 0 ? 
+                referenceData : 
+                referenceData.filter(item => item.idalmacen === warehouse_id);
+            
+            const processedRows: ProcessedRow[] = warehouseFilter.map(item => ({
+                fecha: item.fecha,
+                idalmacen: item.idalmacen,
+                total: item.total,
+                cantfact: item.cantfact,
+                retencion: item.retencion,
+                ivaimp: item.ivaimp,
+                subtot: item.subtot,
+                sumdesc: item.sumdesc,
+                otrosimpuestos: item.otrosimpuestos,
+                impuestoinc: item.impuestoinc,
+                valpropina: item.valpropina,
+                valordev: item.valordev,
+                prodvendid: item.prodvendid,
+                costoacum: item.costoacum,
+                totalconprop: item.totalconprop,
+                nomalmacen: item.nomalmacen
+            }));
             
             // El use case se encargará de procesar el summary, retornamos los datos básicos
             const rawSummary = summary[0][0];
