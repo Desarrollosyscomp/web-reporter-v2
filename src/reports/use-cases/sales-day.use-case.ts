@@ -27,7 +27,7 @@ export class SalesDayUseCase {
     public async main(init_date: string): Promise<TUseCaseResponse> {
         const { data, error } = await this.reportsService.salesDay(init_date);
 
-        const summary = this.parseResponse(data.sales);
+        const summary = this.parseResponse(data.sales || []);
         const status = this.defineStatus(error || false);
         return new UseCaseResponse({
             data: { sales: data.sales, summary },
@@ -41,6 +41,18 @@ export class SalesDayUseCase {
     }
 
     private parseResponse(data: Array<any>): TSummary {
+        if (!data || !Array.isArray(data)) {
+            return {
+                totalSales: 0,
+                totalProducts: 0,
+                totalInvoices: 0,
+                totalCost: 0,
+                totalProfit: 0,
+                totalReturns: 0,
+                warehouses: []
+            };
+        }
+        
         const warehouses = data.map(element => ({
             idalmacen: element.idalmacen,
             nomalmacen: element.nomalmacen.trim(),
