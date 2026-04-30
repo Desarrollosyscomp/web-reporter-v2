@@ -68,13 +68,11 @@ export class SalesDayUseCase {
         const summary = data.reduce((acc, element) => {
             const valordev = element.valordev || 0;
             const totalNeto = element.total - valordev;
-            const subtotalNeto = element.subtot - valordev;
             
             acc.totalSales += totalNeto;
             acc.totalProducts += element.prodvendid;
             acc.totalInvoices += element.cantfact;
             acc.totalCost += element.costoacum;
-            acc.totalProfit += subtotalNeto - element.costoacum;
             acc.totalReturns += valordev;
             return acc;
         }, {
@@ -85,6 +83,9 @@ export class SalesDayUseCase {
             totalProfit: 0,
             totalReturns: 0
         });
+        
+        // Calcular profit correctamente: totalSales - totalCost
+        summary.totalProfit = summary.totalSales - summary.totalCost;
 
         return {
             ...summary,

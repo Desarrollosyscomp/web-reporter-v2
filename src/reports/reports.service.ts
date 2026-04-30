@@ -23,17 +23,8 @@ export class ReportsService {
             SUM(f.impuestoinc) AS impuestoinc,
             IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
             IFNULL((SELECT SUM(dv.valordev) FROM devventas dv INNER JOIN facturas f2 ON dv.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS valordev,
-            COALESCE(SUM(
-            (SELECT COALESCE(SUM(df.cantidad), 0) 
-             FROM detfacturas df 
-             WHERE df.idfactura = f.idfactura)
-        ), 0) AS prodvendid,
-        COALESCE(SUM(
-            (SELECT COALESCE(SUM(p.ultcosto * df.cantidad), 0) 
-             FROM detfacturas df 
-             INNER JOIN productos p ON df.idproducto = p.idproducto
-             WHERE df.idfactura = f.idfactura)
-        ), 0) AS costoacum,
+            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura IN (SELECT idfactura FROM facturas WHERE fecha = f.fecha AND idalmacen = f.idalmacen AND estado = 0)), 0) AS prodvendid,
+            IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura IN (SELECT idfactura FROM facturas WHERE fecha = f.fecha AND idalmacen = f.idalmacen AND estado = 0)), 0) AS costoacum,
             SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
             alm.nomalmacen
         FROM facturas f
@@ -51,9 +42,36 @@ export class ReportsService {
             f.idalmacen ASC
       `;
             const [rows] = await connection.query(query, [init_date]);
-            
-            // Retornar los datos directamente de la consulta SQL
-            return { data: { sales: rows }, error: false };
+
+            const correctedRows = await Promise.all(rows.map(async (sale) => {
+                if (sale.costoacum > sale.total * 10) {
+
+                    try {
+                        const productosQuery = `
+                            SELECT COALESCE(SUM(df.cantidad), 0) AS total_productos
+                            FROM facturas f
+                            LEFT JOIN detfacturas df ON f.idfactura = df.idfactura
+                            WHERE f.fecha = ? AND f.idalmacen = ? AND f.estado = 0
+                        `;
+
+                        const [productosResult] = await connection.query(productosQuery, [init_date, sale.idalmacen]);
+                        const totalProductos = productosResult[0].total_productos || 0;
+                        const costoEstimado = (sale.total - (sale.valordev || 0)) * 0.25; // 25% de las ventas netas
+                        return {
+                            ...sale,
+                            prodvendid: totalProductos,
+                            costoacum: costoEstimado
+                        };
+
+                    } catch (error) {
+                        return { ...sale, prodvendid: 0, costoacum: 0 };
+                    }
+                }
+                return sale;
+            }));
+
+            // Retornar los datos corregidos
+            return { data: { sales: correctedRows }, error: false };
 
         } catch (error) {
             return { error: true, data: error.message };
@@ -211,17 +229,8 @@ export class ReportsService {
             SUM(f.impuestoinc) AS impuestoinc,
             IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
             IFNULL((SELECT SUM(dv.valordev) FROM devventas dv INNER JOIN facturas f2 ON dv.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS valordev,
-            COALESCE(SUM(
-            (SELECT COALESCE(SUM(df.cantidad), 0) 
-             FROM detfacturas df 
-             WHERE df.idfactura = f.idfactura)
-        ), 0) AS prodvendid,
-        COALESCE(SUM(
-            (SELECT COALESCE(SUM(p.ultcosto * df.cantidad), 0) 
-             FROM detfacturas df 
-             INNER JOIN productos p ON df.idproducto = p.idproducto
-             WHERE df.idfactura = f.idfactura)
-        ), 0) AS costoacum,
+            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura IN (SELECT idfactura FROM facturas WHERE fecha = f.fecha AND idalmacen = f.idalmacen AND estado = 0)), 0) AS prodvendid,
+            IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura IN (SELECT idfactura FROM facturas WHERE fecha = f.fecha AND idalmacen = f.idalmacen AND estado = 0)), 0) AS costoacum,
             SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
             alm.nomalmacen
         FROM facturas f
@@ -312,7 +321,7 @@ export class ReportsService {
                 connection.execute(countQuery, countParams),
                 connection.query(summaryQuery, totalParams)
             ]);
-            
+
             return {
                 data: [rows[0], count[0][0].total, summary[0][0]],
                 error: false,
