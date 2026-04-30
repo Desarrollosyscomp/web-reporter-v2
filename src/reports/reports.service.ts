@@ -23,8 +23,17 @@ export class ReportsService {
             SUM(f.impuestoinc) AS impuestoinc,
             IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
             IFNULL((SELECT SUM(dv.valordev) FROM devventas dv INNER JOIN facturas f2 ON dv.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS valordev,
-            (SELECT COALESCE(SUM(df.cantidad), 0) FROM detfacturas df WHERE df.idfactura = f.idfactura) AS prodvendid,
-            (SELECT COALESCE(SUM(df.costoprod * df.cantidad), 0) FROM detfacturas df WHERE df.idfactura = f.idfactura) AS costoacum,
+            COALESCE(SUM(
+            (SELECT COALESCE(SUM(df.cantidad), 0) 
+             FROM detfacturas df 
+             WHERE df.idfactura = f.idfactura)
+        ), 0) AS prodvendid,
+        COALESCE(SUM(
+            (SELECT COALESCE(SUM(p.ultcosto * df.cantidad), 0) 
+             FROM detfacturas df 
+             INNER JOIN productos p ON df.idproducto = p.idproducto
+             WHERE df.idfactura = f.idfactura)
+        ), 0) AS costoacum,
             SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
             alm.nomalmacen
         FROM facturas f
@@ -202,8 +211,17 @@ export class ReportsService {
             SUM(f.impuestoinc) AS impuestoinc,
             IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
             IFNULL((SELECT SUM(dv.valordev) FROM devventas dv INNER JOIN facturas f2 ON dv.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS valordev,
-            (SELECT COALESCE(SUM(df.cantidad), 0) FROM detfacturas df WHERE df.idfactura = f.idfactura) AS prodvendid,
-            (SELECT COALESCE(SUM(df.costoprod * df.cantidad), 0) FROM detfacturas df WHERE df.idfactura = f.idfactura) AS costoacum,
+            COALESCE(SUM(
+            (SELECT COALESCE(SUM(df.cantidad), 0) 
+             FROM detfacturas df 
+             WHERE df.idfactura = f.idfactura)
+        ), 0) AS prodvendid,
+        COALESCE(SUM(
+            (SELECT COALESCE(SUM(p.ultcosto * df.cantidad), 0) 
+             FROM detfacturas df 
+             INNER JOIN productos p ON df.idproducto = p.idproducto
+             WHERE df.idfactura = f.idfactura)
+        ), 0) AS costoacum,
             SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
             alm.nomalmacen
         FROM facturas f
