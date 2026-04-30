@@ -215,7 +215,38 @@ export class ReportsService {
         try {
 
             const offset = (page - 1) * limit;
-            const query = `
+            const query = init_date === end_date ? `
+        SELECT
+            f.fecha,
+            f.idalmacen,
+            SUM(f.valortotal) AS total,
+            COUNT(DISTINCT f.idfactura) AS cantfact,
+            SUM(f.valretenciones) AS retencion,
+            SUM(f.valimpuesto) AS ivaimp,
+            SUM(f.subtotal) AS subtot,
+            SUM(f.valdescuentos) AS sumdesc,
+            SUM(f.otrosimpuestos) AS otrosimpuestos,
+            SUM(f.impuestoinc) AS impuestoinc,
+            IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
+            IFNULL((SELECT SUM(dv.valordev) FROM devventas dv INNER JOIN facturas f2 ON dv.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS valordev,
+            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura IN (SELECT idfactura FROM facturas WHERE fecha = f.fecha AND idalmacen = f.idalmacen AND estado = 0)), 0) AS prodvendid,
+            IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura IN (SELECT idfactura FROM facturas WHERE fecha = f.fecha AND idalmacen = f.idalmacen AND estado = 0)), 0) AS costoacum,
+            SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
+            alm.nomalmacen
+        FROM facturas f
+        INNER JOIN almacenes alm
+            ON f.idalmacen = alm.idalmacen
+            AND alm.idempresa = 1
+                        WHERE
+            f.fecha = ?
+            AND f.estado = 0
+        GROUP BY
+            f.fecha,
+            f.idalmacen,
+            alm.nomalmacen
+        ORDER BY
+            f.idalmacen ASC
+      ` : `
         SELECT
             f.fecha,
             f.idalmacen,
@@ -249,7 +280,7 @@ export class ReportsService {
             f.fecha DESC,
             f.idalmacen
         LIMIT ? OFFSET ?;
-        `;
+      `;
 
             const countQuery = `
                 SELECT COUNT(*) AS total
@@ -262,48 +293,93 @@ export class ReportsService {
                         GROUP BY a.idalmacen, a.fecha
                     ) x;
             `;
-            const summaryQuery = `
+            // Usar mismo summary query que sales-day cuando las fechas son iguales
+            const summaryQuery = init_date === end_date ? `
                         SELECT
-                        COALESCE(SUM(subtot),0) AS subtotal,
-                        COALESCE(SUM(total),0) AS totalSales,
-                        COALESCE(SUM(prodvendid),0) AS totalProducts,
-                        COALESCE(SUM(cantfact),0) AS invoiceQuantity,
-                        COALESCE(SUM(ivaimp),0) AS totalTaxes,
-                        COALESCE(SUM(costoacum),0) AS totalCosts,
-                        COALESCE(SUM(valordev),0) AS returns,
-                        COALESCE(SUM(total),0) - COALESCE(SUM(valordev),0) AS salesMinusReturns
-                    FROM (
+                            COALESCE(SUM(subtot),0) AS subtotal,
+                            COALESCE(SUM(total),0) AS totalSales,
+                            COALESCE(SUM(prodvendid),0) AS totalProducts,
+                            COALESCE(SUM(cantfact),0) AS invoiceQuantity,
+                            COALESCE(SUM(ivaimp),0) AS totalTaxes,
+                            COALESCE(SUM(costoacum),0) AS totalCost,
+                            COALESCE(SUM(valordev),0) AS returns,
+                            COALESCE(SUM(total),0) - COALESCE(SUM(valordev),0) AS salesMinusReturns,
+                            COALESCE(SUM(total),0) - COALESCE(SUM(costoacum),0) AS profit
+                        FROM (
+                            SELECT
+                                f.fecha,
+                                f.idalmacen,
+                                SUM(f.valortotal) AS total,
+                                COUNT(DISTINCT f.idfactura) AS cantfact,
+                                SUM(f.valretenciones) AS retencion,
+                                SUM(f.valimpuesto) AS ivaimp,
+                                SUM(f.subtotal) AS subtot,
+                                SUM(f.valdescuentos) AS sumdesc,
+                                SUM(f.otrosimpuestos) AS otrosimpuestos,
+                                SUM(f.impuestoinc) AS impuestoinc,
+                                IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
+                                IFNULL((SELECT SUM(dv.valordev) FROM devventas dv INNER JOIN facturas f2 ON dv.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS valordev,
+                                IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura IN (SELECT idfactura FROM facturas WHERE fecha = f.fecha AND idalmacen = f.idalmacen AND estado = 0)), 0) AS prodvendid,
+                                IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura IN (SELECT idfactura FROM facturas WHERE fecha = f.fecha AND idalmacen = f.idalmacen AND estado = 0)), 0) AS costoacum,
+                                SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop
+                            FROM facturas f
+                            INNER JOIN almacenes alm
+                                ON f.idalmacen = alm.idalmacen
+                                AND alm.idempresa = 1
+                            WHERE
+                                f.fecha = ?
+                                AND f.estado = 0
+                            GROUP BY
+                                f.fecha,
+                                f.idalmacen,
+                                alm.nomalmacen
+                        ) summary_data
+            ` : `
                         SELECT
-                            f.fecha,
-                            f.idalmacen,
-                            SUM(f.valortotal) AS total,
-                            COUNT(DISTINCT f.idfactura) AS cantfact,
-                            SUM(f.valretenciones) AS retencion,
-                            SUM(f.valimpuesto) AS ivaimp,
-                            SUM(f.subtotal) AS subtot,
-                            SUM(f.valdescuentos) AS sumdesc,
-                            SUM(f.otrosimpuestos) AS otrosimpuestos,
-                            SUM(f.impuestoinc) AS impuestoinc,
-                            IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
-                            IFNULL((SELECT SUM(dv.valordev) FROM devventas dv INNER JOIN facturas f2 ON dv.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS valordev,
-                            (IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura = f.idfactura), 0) - IFNULL((SELECT SUM(dd.cantidad) FROM devventas dv INNER JOIN detdevventas dd ON dv.iddevventas = dd.iddevventas WHERE dv.idfactura = f.idfactura), 0)) AS prodvendid,
-                            IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura = f.idfactura), 0) AS costoacum,
-                            SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop
-                        FROM facturas f
-                        INNER JOIN almacenes alm
-                            ON f.idalmacen = alm.idalmacen
-                            AND alm.idempresa = 1
-                        WHERE
-                            f.fecha BETWEEN ? AND ?
-                            AND f.estado = 0
-                            AND (? = 0 OR f.idalmacen IN (?))
+                            COALESCE(SUM(subtot),0) AS subtotal,
+                            COALESCE(SUM(total),0) AS totalSales,
+                            COALESCE(SUM(prodvendid),0) AS totalProducts,
+                            COALESCE(SUM(cantfact),0) AS invoiceQuantity,
+                            COALESCE(SUM(ivaimp),0) AS totalTaxes,
+                            COALESCE(SUM(costoacum),0) AS totalCost,
+                            COALESCE(SUM(valordev),0) AS returns,
+                            COALESCE(SUM(total),0) - COALESCE(SUM(valordev),0) AS salesMinusReturns,
+                            COALESCE(SUM(total),0) - COALESCE(SUM(costoacum),0) AS profit
+                        FROM (
+                            SELECT
+                                f.fecha,
+                                f.idalmacen,
+                                SUM(f.valortotal) AS total,
+                                COUNT(DISTINCT f.idfactura) AS cantfact,
+                                SUM(f.valretenciones) AS retencion,
+                                SUM(f.valimpuesto) AS ivaimp,
+                                SUM(f.subtotal) AS subtot,
+                                SUM(f.valdescuentos) AS sumdesc,
+                                SUM(f.otrosimpuestos) AS otrosimpuestos,
+                                SUM(f.impuestoinc) AS impuestoinc,
+                                IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
+                                IFNULL((SELECT SUM(dv.valordev) FROM devventas dv INNER JOIN facturas f2 ON dv.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS valordev,
+                                IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura IN (SELECT idfactura FROM facturas WHERE fecha = f.fecha AND idalmacen = f.idalmacen AND estado = 0)), 0) AS prodvendid,
+                                IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura IN (SELECT idfactura FROM facturas WHERE fecha = f.fecha AND idalmacen = f.idalmacen AND estado = 0)), 0) AS costoacum,
+                                SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop
+                            FROM facturas f
+                            INNER JOIN almacenes alm
+                                ON f.idalmacen = alm.idalmacen
+                                AND alm.idempresa = 1
+                            WHERE
+                                f.fecha BETWEEN ? AND ?
+                                AND f.estado = 0
+                                AND (? = 0 OR f.idalmacen IN (?))
                         GROUP BY
-                            f.fecha,
-                            f.idalmacen,
-                            alm.nomalmacen
-                    ) summary_data
+                                f.fecha,
+                                f.idalmacen,
+                                alm.nomalmacen
+                        ) summary_data
             `;
-            const params = [
+            const params = init_date === end_date ? [
+                init_date, warehouse_id, warehouse_id,
+                limit, offset
+            ] : [
                 init_date, end_date, warehouse_id, warehouse_id,
                 limit, offset
             ];
@@ -313,7 +389,9 @@ export class ReportsService {
                 warehouse_id,
                 warehouse_id
             ];
-            const totalParams = [
+            const totalParams = init_date === end_date ? [
+                init_date, warehouse_id, warehouse_id
+            ] : [
                 init_date, end_date, warehouse_id, warehouse_id
             ];
             const [rows, count, summary] = await Promise.all([
@@ -322,8 +400,57 @@ export class ReportsService {
                 connection.query(summaryQuery, totalParams)
             ]);
 
+            // Aplicar corrección al summary si tiene valores desbordados
+            const currentSummary = summary[0][0];
+            let correctedSummary = {
+                ...currentSummary,
+                debug_condition: currentSummary.totalCost > currentSummary.totalSales * 10,
+                debug_totalCost: currentSummary.totalCost,
+                debug_threshold: currentSummary.totalSales * 10
+            };
+            
+            // Aplicar corrección cuando hay desbordamiento
+            if (currentSummary.totalCost > currentSummary.totalSales * 10) {
+                try {
+                    // Calcular productos y costos correctos para el summary
+                    const summaryProductsQuery = init_date === end_date ? `
+                        SELECT 
+                            COALESCE(SUM(df.cantidad), 0) AS total_productos,
+                            COALESCE(SUM(p.ultcosto * df.cantidad), 0) AS total_costos
+                        FROM facturas f
+                        LEFT JOIN detfacturas df ON f.idfactura = df.idfactura
+                        LEFT JOIN productos p ON df.idproducto = p.idproducto
+                        WHERE f.fecha = ?
+                        AND f.estado = 0
+                        AND (? = 0 OR f.idalmacen IN (?))
+                    ` : `
+                        SELECT 
+                            COALESCE(SUM(df.cantidad), 0) AS total_productos,
+                            COALESCE(SUM(p.ultcosto * df.cantidad), 0) AS total_costos
+                        FROM facturas f
+                        LEFT JOIN detfacturas df ON f.idfactura = df.idfactura
+                        LEFT JOIN productos p ON df.idproducto = p.idproducto
+                        WHERE f.fecha BETWEEN ? AND ?
+                        AND f.estado = 0
+                        AND (? = 0 OR f.idalmacen IN (?))
+                    `;
+                    
+                    const [summaryProductsResult] = await connection.query(summaryProductsQuery, init_date === end_date ? [init_date, warehouse_id, warehouse_id] : [init_date, end_date, warehouse_id, warehouse_id]);
+                    const summaryData = summaryProductsResult[0];
+                    
+                    correctedSummary = {
+                        ...currentSummary,
+                        totalProducts: summaryData.total_productos || 0,
+                        totalCost: summaryData.total_costos || 0,
+                        profit: (currentSummary.totalSales || 0) - (summaryData.total_costos || 0)
+                    };
+                } catch (error) {
+                    // Si falla, dejar valores originales
+                }
+            }
+
             return {
-                data: [rows[0], count[0][0].total, summary[0][0]],
+                data: [rows[0], count[0][0].total, correctedSummary],
                 error: false,
             };
         } catch (error: any) {
@@ -526,8 +653,57 @@ export class ReportsService {
                 connection.query(countQuery, countParams),
                 connection.query(summaryQuery, summaryParams)
             ]);
+            // Aplicar corrección al summary si tiene valores desbordados
+            const currentSummary = summary[0][0];
+            let correctedSummary = {
+                ...currentSummary,
+                debug_condition: currentSummary.totalCost > currentSummary.totalSales * 10,
+                debug_totalCost: currentSummary.totalCost,
+                debug_threshold: currentSummary.totalSales * 10
+            };
+            
+            // Aplicar corrección cuando hay desbordamiento
+            if (currentSummary.totalCost > currentSummary.totalSales * 10) {
+                try {
+                    // Calcular productos y costos correctos para el summary
+                    const summaryProductsQuery = init_date === end_date ? `
+                        SELECT 
+                            COALESCE(SUM(df.cantidad), 0) AS total_productos,
+                            COALESCE(SUM(p.ultcosto * df.cantidad), 0) AS total_costos
+                        FROM facturas f
+                        LEFT JOIN detfacturas df ON f.idfactura = df.idfactura
+                        LEFT JOIN productos p ON df.idproducto = p.idproducto
+                        WHERE f.fecha = ?
+                        AND f.estado = 0
+                        AND (? = 0 OR f.idalmacen IN (?))
+                    ` : `
+                        SELECT 
+                            COALESCE(SUM(df.cantidad), 0) AS total_productos,
+                            COALESCE(SUM(p.ultcosto * df.cantidad), 0) AS total_costos
+                        FROM facturas f
+                        LEFT JOIN detfacturas df ON f.idfactura = df.idfactura
+                        LEFT JOIN productos p ON df.idproducto = p.idproducto
+                        WHERE f.fecha BETWEEN ? AND ?
+                        AND f.estado = 0
+                        AND (? = 0 OR f.idalmacen IN (?))
+                    `;
+                    
+                    const [summaryProductsResult] = await connection.query(summaryProductsQuery, init_date === end_date ? [init_date, warehouse_id, warehouse_id] : [init_date, end_date, warehouse_id, warehouse_id]);
+                    const summaryData = summaryProductsResult[0];
+                    
+                    correctedSummary = {
+                        ...currentSummary,
+                        totalProducts: summaryData.total_productos || 0,
+                        totalCost: summaryData.total_costos || 0,
+                        profit: (currentSummary.totalSales || 0) - (summaryData.total_costos || 0)
+                    };
+                } catch (error) {
+                    // Si falla, dejar valores originales
+                }
+            }
+
             return {
-                data: [rows[0], count[0][0].total, summary[0][0]],
+                data: [rows[0], count[0][0].total, correctedSummary],
                 error: false,
             };
         } catch (error) {
@@ -535,7 +711,6 @@ export class ReportsService {
 
         } finally {
             if (connection) this.db.release(connection);
-
         }
     }
 
@@ -624,8 +799,57 @@ export class ReportsService {
                 connection.query(countQuery, countParams),
                 connection.query(summaryQuery, summaryParams)
             ]);
+            // Aplicar corrección al summary si tiene valores desbordados
+            const currentSummary = summary[0][0];
+            let correctedSummary = {
+                ...currentSummary,
+                debug_condition: currentSummary.totalCost > currentSummary.totalSales * 10,
+                debug_totalCost: currentSummary.totalCost,
+                debug_threshold: currentSummary.totalSales * 10
+            };
+            
+            // Aplicar corrección cuando hay desbordamiento
+            if (currentSummary.totalCost > currentSummary.totalSales * 10) {
+                try {
+                    // Calcular productos y costos correctos para el summary
+                    const summaryProductsQuery = init_date === end_date ? `
+                        SELECT 
+                            COALESCE(SUM(df.cantidad), 0) AS total_productos,
+                            COALESCE(SUM(p.ultcosto * df.cantidad), 0) AS total_costos
+                        FROM facturas f
+                        LEFT JOIN detfacturas df ON f.idfactura = df.idfactura
+                        LEFT JOIN productos p ON df.idproducto = p.idproducto
+                        WHERE f.fecha = ?
+                        AND f.estado = 0
+                        AND (? = 0 OR f.idalmacen IN (?))
+                    ` : `
+                        SELECT 
+                            COALESCE(SUM(df.cantidad), 0) AS total_productos,
+                            COALESCE(SUM(p.ultcosto * df.cantidad), 0) AS total_costos
+                        FROM facturas f
+                        LEFT JOIN detfacturas df ON f.idfactura = df.idfactura
+                        LEFT JOIN productos p ON df.idproducto = p.idproducto
+                        WHERE f.fecha BETWEEN ? AND ?
+                        AND f.estado = 0
+                        AND (? = 0 OR f.idalmacen IN (?))
+                    `;
+                    
+                    const [summaryProductsResult] = await connection.query(summaryProductsQuery, init_date === end_date ? [init_date, warehouse_id, warehouse_id] : [init_date, end_date, warehouse_id, warehouse_id]);
+                    const summaryData = summaryProductsResult[0];
+                    
+                    correctedSummary = {
+                        ...currentSummary,
+                        totalProducts: summaryData.total_productos || 0,
+                        totalCost: summaryData.total_costos || 0,
+                        profit: (currentSummary.totalSales || 0) - (summaryData.total_costos || 0)
+                    };
+                } catch (error) {
+                    // Si falla, dejar valores originales
+                }
+            }
+
             return {
-                data: [rows[0], count[0][0].total, summary[0][0]],
+                data: [rows[0], count[0][0].total, correctedSummary],
                 error: false,
             };
 
@@ -758,7 +982,6 @@ export class ReportsService {
 
         } finally {
             if (connection) this.db.release(connection);
-
         }
 
     }
@@ -961,7 +1184,6 @@ export class ReportsService {
 
         } finally {
             if (connection) this.db.release(connection);
-
         }
     }
 
