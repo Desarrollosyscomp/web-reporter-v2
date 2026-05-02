@@ -207,7 +207,7 @@ export class DashboardUseCase {
     private parseCumulativeSales(data: Array<any>): TCumulativeSales[] {
         return data.reduce<TCumulativeSales[]>((acc, item) => {
             acc.push({
-                date: item.fecha,
+                date: item.date,
                 idalmacen: item.idalmacen,
                 totalSales: Number(item.totalSales || 0),
                 totalProducts: Number(item.totalProducts || 0),
