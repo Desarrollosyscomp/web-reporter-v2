@@ -1035,11 +1035,7 @@ export class ReportsService {
             const { init: summary_init, end: summary_end } = summary_range
             const { from: weekly_from, to: weekly_to } = weekly_range
             const cumulativeSalesParams = [
-                weekly_from, weekly_to, 0, 0,
-                weekly_from, weekly_to, 0, 0,
-                weekly_from, weekly_to, 0, 0,
-                weekly_from, weekly_to, 0, 0,
-                weekly_from, weekly_to, 0, 0
+                weekly_from, weekly_to
             ];
             const salesDayParam = [summary_init];
             const payableParam = [weekly_from, weekly_to];
@@ -1117,94 +1113,50 @@ export class ReportsService {
             `;
 
             const cumulativeSalesQuery = `
-                    SELECT
-                        e.fecha,
-                        COALESCE(SUM(e.subtot),0) AS subtotal,
-                        COALESCE(SUM(e.total),0) AS totalSales,
-                        COALESCE(SUM(IFNULL(p.prodvendid,0) - IFNULL(qd.cantdevoluciones,0)),0) AS totalProducts,
-                        COALESCE(SUM(e.cantfact),0) AS invoiceQuantity,
-                        COALESCE(SUM(e.ivaimp),0) AS totalTaxes,
-                        COALESCE(SUM(IFNULL(p.costoacum,0) - IFNULL(cd.costodevoluciones,0)),0) AS totalCosts,
-                        COALESCE(SUM(IFNULL(d.valordev,0)),0) AS returns,
-                        COALESCE(SUM(e.total - IFNULL(d.valordev,0)),0) AS salesMinusReturns
+                    SELECT 
+                        f.fecha AS date,
+                        COALESCE(SUM(f.subtot),0) AS subtotal,
+                        COALESCE(SUM(f.total),0) AS totalSales,
+                        COALESCE(SUM(f.prodvendid),0) AS totalProducts,
+                        COALESCE(SUM(f.cantfact),0) AS invoiceQuantity,
+                        COALESCE(SUM(f.ivaimp),0) AS totalTaxes,
+                        COALESCE(SUM(f.costoacum),0) AS totalCosts,
+                        COALESCE(SUM(f.valordev),0) AS returns,
+                        COALESCE(SUM(f.total - f.valordev),0) AS salesMinusReturns
                     FROM (
-                        SELECT 
-                            a.idalmacen,
-                            a.fecha,
-                            SUM(a.valortotal) AS total,
-                            COUNT(a.idfactura) AS cantfact,
-                            SUM(a.valretenciones) AS retencion,
-                            SUM(a.valimpuesto) AS ivaimp,
-                            SUM(a.subtotal) AS subtot,
-                            SUM(a.valdescuentos) AS sumdesc,
-                            SUM(a.otrosimpuestos) AS otrosimpuestos,
-                            SUM(a.impuestoinc) AS impuestoinc,
-                            0 AS valpropina,
-                            0 AS valordev,
-                            0 AS prodvendid,
-                            0 AS costoacum,
-                            SUM(a.valortotal) AS totalconprop
-                        FROM facturas a
-                        WHERE a.fecha BETWEEN ? AND ?
-                        AND a.estado = 0
-                        AND (0 = 0 OR a.idalmacen IN (0))
-                        GROUP BY a.idalmacen, a.fecha
-                    ) e
-                    LEFT JOIN (
-                        SELECT 
-                            a.idalmacen,
-                            a.fecha,
-                            SUM(dv.valordev) AS valordev
-                        FROM facturas a
-                        LEFT JOIN devventas dv ON dv.idfactura = a.idfactura
-                        WHERE a.fecha BETWEEN ? AND ?
-                        AND a.estado = 0
-                        AND (0 = 0 OR a.idalmacen IN (0))
-                        GROUP BY a.idalmacen, a.fecha
-                    ) d ON d.fecha = e.fecha AND d.idalmacen = e.idalmacen
-                    LEFT JOIN (
-                        SELECT 
-                            a.idalmacen,
-                            a.fecha,
-                            SUM(df.cantidad) AS prodvendid,
-                            SUM(p.ultcosto * df.cantidad) AS costoacum
-                        FROM facturas a
-                        JOIN detfacturas df ON df.idfactura = a.idfactura
-                        JOIN productos p ON p.idproducto = df.idproducto
-                        WHERE a.fecha BETWEEN ? AND ?
-                        AND a.estado = 0
-                        AND (0 = 0 OR a.idalmacen IN (0))
-                        GROUP BY a.idalmacen, a.fecha
-                    ) p ON p.fecha = e.fecha AND p.idalmacen = e.idalmacen
-                    LEFT JOIN (
-                        SELECT 
-                            a.idalmacen,
-                            a.fecha,
-                            IFNULL(SUM(dd.costo * dd.cantidad), 0) AS costodevoluciones
-                        FROM facturas a
-                        LEFT JOIN devventas dv ON dv.idfactura = a.idfactura
-                        LEFT JOIN detdevventas dd ON dd.iddevventas = dv.iddevventas
-                        WHERE a.fecha BETWEEN ? AND ?
-                        AND a.estado = 0
-                        AND (0 = 0 OR a.idalmacen IN (0))
-                        GROUP BY a.idalmacen, a.fecha
-                    ) cd ON cd.fecha = e.fecha AND cd.idalmacen = e.idalmacen
-                    LEFT JOIN (
-                        SELECT 
-                            a.idalmacen,
-                            a.fecha,
-                            IFNULL(SUM(dd.cantidad), 0) AS cantdevoluciones
-                        FROM facturas a
-                        LEFT JOIN devventas dv ON dv.idfactura = a.idfactura
-                        LEFT JOIN detdevventas dd ON dd.iddevventas = dv.iddevventas
-                        WHERE a.fecha BETWEEN ? AND ?
-                        AND a.estado = 0
-                        AND (0 = 0 OR a.idalmacen IN (0))
-                        GROUP BY a.idalmacen, a.fecha
-                    ) qd ON qd.fecha = e.fecha AND qd.idalmacen = e.idalmacen
-                    GROUP BY e.fecha, e.idalmacen
-                    ORDER BY e.fecha ASC, e.idalmacen
-                    `;
+                        SELECT
+                            f.fecha,
+                            f.idalmacen,
+                            SUM(f.valortotal) AS total,
+                            COUNT(DISTINCT f.idfactura) AS cantfact,
+                            SUM(f.valretenciones) AS retencion,
+                            SUM(f.valimpuesto) AS ivaimp,
+                            SUM(f.subtotal) AS subtot,
+                            SUM(f.valdescuentos) AS sumdesc,
+                            SUM(f.otrosimpuestos) AS otrosimpuestos,
+                            SUM(f.impuestoinc) AS impuestoinc,
+                            IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
+                            IFNULL((SELECT SUM(dv.valordev) FROM devventas dv INNER JOIN facturas f2 ON dv.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS valordev,
+                            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura IN (SELECT idfactura FROM facturas WHERE fecha = f.fecha AND idalmacen = f.idalmacen AND estado = 0)), 0) AS prodvendid,
+                            IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura IN (SELECT idfactura FROM facturas WHERE fecha = f.fecha AND idalmacen = f.idalmacen AND estado = 0)), 0) AS costoacum,
+                            SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
+                            alm.nomalmacen
+                        FROM facturas f
+                        INNER JOIN almacenes alm
+                            ON f.idalmacen = alm.idalmacen
+                            AND alm.idempresa = 1
+                        WHERE
+                            f.fecha BETWEEN ? AND ?
+                            AND f.estado = 0
+                            AND (0 = 0 OR f.idalmacen IN (0))
+                        GROUP BY
+                            f.fecha,
+                            f.idalmacen,
+                            alm.nomalmacen
+                    ) f
+                    GROUP BY f.fecha
+                    ORDER BY f.fecha ASC
+            `;
             const [salesDayRows, payableRows, receivablePortfolioRows, cumulativeSalesRows] = await Promise.all([
                 connection.query(salesDayQuery, salesDayParam),
                 connection.query(payableQuery, payableParam),
