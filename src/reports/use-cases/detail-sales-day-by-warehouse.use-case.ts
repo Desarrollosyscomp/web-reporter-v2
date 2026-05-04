@@ -7,6 +7,7 @@ type TSummary = {
     subtotal: number;
     totalTaxes: number;
     totalSales: number;
+    discounts: number;
     paymentMethods: Array<TPaymentMethod>;
 }
 
@@ -45,11 +46,12 @@ export class DetailSalesDayByWarehouseUseCase {
     }
 
     private addValues(summary: any): TSummary {
-
+        const discounts = Number(summary.sumdesc || 0);
         let _summary: TSummary = {
             subtotal: summary.subtotal,
             totalTaxes: summary.total_impuestos,
-            totalSales: summary.total_ventas,
+            totalSales: Number(summary.total_ventas || 0) + discounts,
+            discounts: discounts,
             paymentMethods: summary.paymentMethods.map((payment: any) => ({
                 payment_id: payment.idpago,
                 payment_name: payment.nompago,
