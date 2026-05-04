@@ -59,7 +59,7 @@ export class SalesDayUseCase {
         const warehouses = data.map(element => ({
             idalmacen: element.idalmacen,
             nomalmacen: element.nomalmacen.trim(),
-            total: element.total,
+            total: element.total + (element.sumdesc || 0),
             cantfact: element.cantfact,
             subtotal: element.subtotal,
             ivaimp: element.ivaimp,
@@ -71,14 +71,16 @@ export class SalesDayUseCase {
 
         const summary = data.reduce((acc, element) => {
             const valordev = element.valordev || 0;
+            const descuentos = element.sumdesc || 0;
             const totalNeto = element.total - valordev;
+            const totalSinDescuentos = totalNeto + descuentos;
             
-            acc.totalSales += totalNeto;
+            acc.totalSales += totalSinDescuentos;
             acc.totalProducts += element.prodvendid;
             acc.totalInvoices += element.cantfact;
             acc.totalCost += element.costoacum;
             acc.totalReturns += valordev;
-            acc.discounts += element.sumdesc || 0;
+            acc.discounts += descuentos;
             return acc;
         }, {
             totalSales: 0,

@@ -48,7 +48,7 @@ export class CumulativeSalesUseCase {
 
     private parseResponse(summary: any, list: any[]): TSummary {
         let totalCost = Number(summary.totalCost || 0);
-        let totalSales = Number(summary.totalSales || 0);
+        let totalSales = Number(summary.totalSales || 0) + Number(summary.discounts || 0);
         let totalProducts = Number(summary.totalProducts || 0);
 
         // Aplicar corrección de desbordamiento - usar valores correctos conocidos
