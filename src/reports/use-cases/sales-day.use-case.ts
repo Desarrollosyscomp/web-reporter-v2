@@ -11,6 +11,7 @@ type TSalesDaySummary = {
     totalReturns: number;
     discounts: number;
     warehouses: Array<{
+        fecha: string;
         idalmacen: number;
         nomalmacen: string;
         total: number;
@@ -19,6 +20,7 @@ type TSalesDaySummary = {
         ivaimp: number;
         costoacum: number;
         valordev: number;
+        prodvendid: number;
         totalNeto: number;
         discounts: number;
     }>;
@@ -57,6 +59,7 @@ export class SalesDayUseCase {
         }
         
         const warehouses = data.map(element => ({
+            fecha: element.fecha,
             idalmacen: element.idalmacen,
             nomalmacen: element.nomalmacen.trim(),
             total: element.total + (element.sumdesc || 0),
@@ -65,6 +68,7 @@ export class SalesDayUseCase {
             ivaimp: element.ivaimp,
             costoacum: element.costoacum,
             valordev: element.valordev || 0,
+            prodvendid: element.prodvendid,
             totalNeto: (element.total + (element.sumdesc || 0)) - (element.valordev || 0),
             discounts: element.sumdesc || 0
         }));

@@ -29,10 +29,11 @@ export class DetailSalesDayByWarehouseUseCase {
     public async main(date: string, warehouse_id: number, page: number, limit: number): Promise<TUseCaseResponse> {
         const { data, error } = await this.reportsService.detailSalesDayByWarehouse(date, warehouse_id, page, limit);
         const summary = this.addValues(data[2]);
+        const transformedList = this.transformList(data[0]);
         const status = this.defineStatus(error || false);
         return new UseCaseResponse<TDetailSalesRawData>({
             data: {
-                list: data[0],
+                list: transformedList,
                 count: data[1],
                 summary,
             },
@@ -43,6 +44,17 @@ export class DetailSalesDayByWarehouseUseCase {
     }
     private defineStatus(error: boolean): number {
         return error ? 0 : 1;
+    }
+
+    private transformList(list: any[]): any[] {
+        if (!list || !Array.isArray(list)) {
+            return [];
+        }
+
+        return list.map(item => ({
+            ...item,
+            valortotal: (item.valortotal || 0) + (item.valdescuentos || 0)
+        }));
     }
 
     private addValues(summary: any): TSummary {
