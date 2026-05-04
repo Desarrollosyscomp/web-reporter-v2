@@ -64,7 +64,7 @@ export class SalesDayUseCase {
             nomalmacen: element.nomalmacen.trim(),
             total: element.total + (element.sumdesc || 0),
             cantfact: element.cantfact,
-            subtotal: element.subtotal,
+            subtotal: element.subtot,
             ivaimp: element.ivaimp,
             costoacum: element.costoacum,
             valordev: element.valordev || 0,
