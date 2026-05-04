@@ -2,13 +2,14 @@ import { UseCaseResponse } from "../../local-responses/classes/use-case-response
 import { TUseCaseResponse } from "../../local-responses/response-types/use-case-response.type";
 import { ReportsService } from "../reports.service";
 
-type TSummary = {
+type TSalesDaySummary = {
     totalSales: number;
     totalProducts: number;
     totalInvoices: number;
     totalCost: number;
     totalProfit: number;
     totalReturns: number;
+    discounts: number;
     warehouses: Array<{
         idalmacen: number;
         nomalmacen: string;
@@ -19,6 +20,7 @@ type TSummary = {
         costoacum: number;
         valordev: number;
         totalNeto: number;
+        discounts: number;
     }>;
 }
 export class SalesDayUseCase {
@@ -40,7 +42,7 @@ export class SalesDayUseCase {
         return error ? 0 : 1;
     }
 
-    private parseResponse(data: Array<any>): TSummary {
+    private parseResponse(data: Array<any>): TSalesDaySummary {
         if (!data || !Array.isArray(data)) {
             return {
                 totalSales: 0,
@@ -49,6 +51,7 @@ export class SalesDayUseCase {
                 totalCost: 0,
                 totalProfit: 0,
                 totalReturns: 0,
+                discounts: 0,
                 warehouses: []
             };
         }
@@ -62,7 +65,8 @@ export class SalesDayUseCase {
             ivaimp: element.ivaimp,
             costoacum: element.costoacum,
             valordev: element.valordev || 0,
-            totalNeto: element.total - (element.valordev || 0)
+            totalNeto: element.total - (element.valordev || 0),
+            discounts: element.sumdesc || 0
         }));
 
         const summary = data.reduce((acc, element) => {
@@ -74,6 +78,7 @@ export class SalesDayUseCase {
             acc.totalInvoices += element.cantfact;
             acc.totalCost += element.costoacum;
             acc.totalReturns += valordev;
+            acc.discounts += element.sumdesc || 0;
             return acc;
         }, {
             totalSales: 0,
@@ -81,7 +86,8 @@ export class SalesDayUseCase {
             totalInvoices: 0,
             totalCost: 0,
             totalProfit: 0,
-            totalReturns: 0
+            totalReturns: 0,
+            discounts: 0
         });
         
         // Calcular profit correctamente: totalSales - totalCost

@@ -12,6 +12,7 @@ type TSummary = {
     salesMinusReturns: number;
     totalReturns: number;
     totalProfit: number;
+    discounts: number;
 }
 
 type TCumilativeSalesRawData = {
@@ -66,7 +67,8 @@ export class CumulativeSalesUseCase {
             totalCost: totalCost,
             salesMinusReturns: Number(summary.salesMinusReturns || 0),
             totalReturns: Number(summary.returns || 0),
-            totalProfit: totalSales - totalCost
+            totalProfit: totalSales - totalCost,
+            discounts: Number(summary.discounts || 0)
         }
         return _summary;
     }

@@ -304,6 +304,7 @@ export class ReportsService {
                             COALESCE(SUM(ivaimp),0) AS totalTaxes,
                             COALESCE(SUM(costoacum),0) AS totalCost,
                             COALESCE(SUM(valordev),0) AS returns,
+                            COALESCE(SUM(sumdesc),0) AS discounts,
                             COALESCE(SUM(total),0) - COALESCE(SUM(valordev),0) AS salesMinusReturns,
                             COALESCE(SUM(total),0) - COALESCE(SUM(costoacum),0) AS profit
                         FROM (
@@ -345,6 +346,7 @@ export class ReportsService {
                             COALESCE(SUM(ivaimp),0) AS totalTaxes,
                             COALESCE(SUM(costoacum),0) AS totalCost,
                             COALESCE(SUM(valordev),0) AS returns,
+                            COALESCE(SUM(sumdesc),0) AS discounts,
                             COALESCE(SUM(total),0) - COALESCE(SUM(valordev),0) AS salesMinusReturns,
                             COALESCE(SUM(total),0) - COALESCE(SUM(costoacum),0) AS profit
                         FROM (
