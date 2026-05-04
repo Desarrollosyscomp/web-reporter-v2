@@ -48,7 +48,9 @@ export class CumulativeSalesUseCase {
 
     private parseResponse(summary: any, list: any[]): TSummary {
         let totalCost = Number(summary.totalCost || 0);
-        let totalSales = Number(summary.totalSales || 0) + Number(summary.discounts || 0);
+        let discounts = Number(summary.discounts || 0);
+        let totalSales = Number(summary.totalSales || 0) + discounts;
+        let totalSalesBruto = Number(summary.totalSales || 0) + discounts; // Total sin descuentos restados
         let totalProducts = Number(summary.totalProducts || 0);
 
         let _summary: TSummary = {
@@ -58,10 +60,10 @@ export class CumulativeSalesUseCase {
             totalInvoices: Number(summary.invoiceQuantity || 0),
             totalTaxes: Number(summary.totalTaxes || 0),
             totalCost: totalCost,
-            salesMinusReturns: Number(summary.salesMinusReturns || 0),
+            salesMinusReturns: totalSalesBruto - Number(summary.returns || 0),
             totalReturns: Number(summary.returns || 0),
             totalProfit: totalSales - totalCost,
-            discounts: Number(summary.discounts || 0)
+            discounts: discounts
         }
         return _summary;
     }
