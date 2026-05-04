@@ -51,12 +51,6 @@ export class CumulativeSalesUseCase {
         let totalSales = Number(summary.totalSales || 0) + Number(summary.discounts || 0);
         let totalProducts = Number(summary.totalProducts || 0);
 
-        // Aplicar corrección de desbordamiento - usar valores correctos conocidos
-        if (totalCost > totalSales * 10) {
-            totalCost = 1974899.08; // Valor correcto de sales-day para 20260417
-            // No corregir totalSales y totalProducts para que el filtro de almacén funcione
-        }
-
         let _summary: TSummary = {
             subtotal: summary.subtotal,
             totalSales: totalSales,
