@@ -26,12 +26,11 @@ export class CumulativeSalesUseCase {
 
     public async main(init_date: string, end_date: string, page: number, limit: number, warehouse_id: number): Promise<TUseCaseResponse> {
         const { data, error } = await this.reportsService.getCumulativeSales(init_date, end_date, page, limit, warehouse_id);
-        
+
         const list = Array.isArray(data[0]) ? data[0] : [];
         const summary = this.parseResponse(data[2], list);
-        
         const status = this.defineStatus(error || false);
-        
+
         return new UseCaseResponse<TCumilativeSalesRawData>({
             data: {
                 list: list,
@@ -51,13 +50,13 @@ export class CumulativeSalesUseCase {
         let totalCost = Number(summary.totalCost || 0);
         let totalSales = Number(summary.totalSales || 0);
         let totalProducts = Number(summary.totalProducts || 0);
-        
+
         // Aplicar corrección de desbordamiento - usar valores correctos conocidos
         if (totalCost > totalSales * 10) {
             totalCost = 1974899.08; // Valor correcto de sales-day para 20260417
             // No corregir totalSales y totalProducts para que el filtro de almacén funcione
         }
-        
+
         let _summary: TSummary = {
             subtotal: summary.subtotal,
             totalSales: totalSales,
