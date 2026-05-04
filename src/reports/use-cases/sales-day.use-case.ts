@@ -29,10 +29,10 @@ export class SalesDayUseCase {
     public async main(init_date: string): Promise<TUseCaseResponse> {
         const { data, error } = await this.reportsService.salesDay(init_date);
 
-        const summary = this.parseResponse(data.sales || []);
+        const transformedData = this.parseResponse(data.sales || []);
         const status = this.defineStatus(error || false);
         return new UseCaseResponse({
-            data: { sales: data.sales, summary },
+            data: { sales: transformedData.warehouses, summary: transformedData },
             error,
             status
         }).getResponse();
@@ -65,7 +65,7 @@ export class SalesDayUseCase {
             ivaimp: element.ivaimp,
             costoacum: element.costoacum,
             valordev: element.valordev || 0,
-            totalNeto: element.total - (element.valordev || 0),
+            totalNeto: (element.total + (element.sumdesc || 0)) - (element.valordev || 0),
             discounts: element.sumdesc || 0
         }));
 
