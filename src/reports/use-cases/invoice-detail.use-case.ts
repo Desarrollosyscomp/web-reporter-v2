@@ -48,18 +48,20 @@ export class InvoiceDetailUseCase {
     }
 
     private getSummary(list: Array<any>, paymentMethods: Array<any>): TSummary {
+        
+        const totalCosto = list.reduce((sum, item) => sum + Number(item.total_costo || 0), 0);
+        const firstItem = list[0] || {};
+        const calculatedTotal = Number((Number(firstItem.subtotal || 0) + Number(firstItem.valimpuesto || 0) - Number(firstItem.valdescuentos || 0)).toFixed(2));
 
         return list.reduce<TSummary>((acc, item) => {
             const _subtotal = Number(item.subtotal || 0);
-            let _cost = Number(0);
-            _cost += item.total_costo;
             acc.subtotal = item.subtotal;
-            acc.totalSale = item.valortotal;
+            acc.totalSale = calculatedTotal;
             acc.valueAddedTax = item.valimpuesto;
             acc.totalDiscounts = item.valdescuentos;
             acc.customer = `${item.nombres} ${item.apellidos}`;
             acc.totalItems += item.cantidad;
-            acc.profit = _subtotal - _cost;
+            acc.profit = _subtotal - totalCosto;
             acc.paymentMethods = paymentMethods.map((payment) => ({
                 payment_id: payment.idpago,
                 payment_name: payment.nompago,
