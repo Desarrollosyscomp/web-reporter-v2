@@ -1008,7 +1008,8 @@ export class ReportsService {
                             OR p.descripcion LIKE ?
                             OR p.codigo LIKE ?
                             OR p.barcode LIKE ?
-                        );
+                        )
+                    GROUP BY i.idalmacen, a.nomalmacen;
                         `;
 
             const [rows, countRows, summaryRows]: any = await Promise.all([
