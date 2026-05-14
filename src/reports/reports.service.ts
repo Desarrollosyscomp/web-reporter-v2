@@ -923,6 +923,7 @@ export class ReportsService {
                                 (p.costo * i.cantidad) AS costo_total,
                                 (p.costo * (v.porcentaje / 100)) AS valor_iva,
                                 p.precioventa AS precio_venta,
+                                IFNULL(p.precioventa / NULLIF(1 + IFNULL(v.porcentaje, 0) / 100, 0), p.precioventa) AS precio_antes_iva,
                                 (p.precioventa * i.cantidad) AS valorizado,
                                 p.ultcosto AS ultimo_costo,
                                 (p.ultcosto * i.cantidad) AS costo_ponderado,
@@ -930,7 +931,7 @@ export class ReportsService {
                                 IF(p.impuestoico = 1, p.valorico, 0) AS valor_ico
                             FROM productos p
                             LEFT JOIN inventario i ON p.idproducto = i.idproducto
-                            LEFT JOIN iva v ON p.codivacomp = v.codiva
+                            LEFT JOIN iva v ON p.codiva = v.codiva
                             LEFT JOIN almacenes a ON i.idalmacen = a.idalmacen
                             WHERE p.tipo = 1
                                 AND p.estado = 1
@@ -1007,7 +1008,7 @@ export class ReportsService {
                         END AS nomalmacen
                     FROM productos p
                     LEFT JOIN inventario i ON p.idproducto = i.idproducto
-                    LEFT JOIN iva v ON p.codivacomp = v.codiva
+                    LEFT JOIN iva v ON p.codiva = v.codiva
                     LEFT JOIN almacenes a ON i.idalmacen = a.idalmacen
                     WHERE p.tipo = 1
                         AND p.estado = 1
