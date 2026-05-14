@@ -996,13 +996,18 @@ export class ReportsService {
                         SUM(p.ultcosto * i.cantidad) AS averageInventoryCost,
                         SUM(p.costo * i.cantidad) AS inventoryCost,
                         SUM(p.precioventa * i.cantidad) AS inventoryPrice,
-                        SUM((p.precioventa - p.costo) * i.cantidad) AS profit,
+                        SUM(
+                            (p.precioventa * i.cantidad)
+                            - ((p.precioventa * (IFNULL(v.porcentaje, 0) / 100)) + IF(p.impuestoico = 1, p.valorico, 0)) * i.cantidad
+                            - (p.costo * i.cantidad)
+                        ) AS profit,
                         CASE 
                             WHEN ? = 0 THEN 'TODOS LOS ALMACENES'
-                            ELSE a.nomalmacen
+                            ELSE MAX(a.nomalmacen)
                         END AS nomalmacen
                     FROM productos p
                     LEFT JOIN inventario i ON p.idproducto = i.idproducto
+                    LEFT JOIN iva v ON p.codivacomp = v.codiva
                     LEFT JOIN almacenes a ON i.idalmacen = a.idalmacen
                     WHERE p.tipo = 1
                         AND p.estado = 1
@@ -1026,7 +1031,7 @@ export class ReportsService {
                 data: [rows[0], countRows[0][0].total, summaryRows[0][0]],
                 error: false,
             };
-        } catch (error) {
+        } catch (error: any) {
             return { error: true, data: error.message };
 
         } finally {
