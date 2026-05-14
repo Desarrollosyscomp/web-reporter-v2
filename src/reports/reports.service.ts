@@ -967,10 +967,12 @@ export class ReportsService {
             const summaryParams = [
                 warehouse_id,
                 warehouse_id,
+                warehouse_id,
                 searchParam,
                 searchParam,
                 searchParam,
-                searchParam
+                searchParam,
+                warehouse_id
             ];
 
             const countQuery = `
@@ -995,7 +997,10 @@ export class ReportsService {
                         SUM(p.costo * i.cantidad) AS inventoryCost,
                         SUM(p.precioventa * i.cantidad) AS inventoryPrice,
                         SUM((p.precioventa - p.costo) * i.cantidad) AS profit,
-                        a.nomalmacen
+                        CASE 
+                            WHEN ? = 0 THEN 'TODOS LOS ALMACENES'
+                            ELSE a.nomalmacen
+                        END AS nomalmacen
                     FROM productos p
                     LEFT JOIN inventario i ON p.idproducto = i.idproducto
                     LEFT JOIN almacenes a ON i.idalmacen = a.idalmacen
@@ -1009,7 +1014,7 @@ export class ReportsService {
                             OR p.codigo LIKE ?
                             OR p.barcode LIKE ?
                         )
-                    GROUP BY i.idalmacen, a.nomalmacen;
+                    GROUP BY (CASE WHEN ? = 0 THEN 0 ELSE i.idalmacen END);
                         `;
 
             const [rows, countRows, summaryRows]: any = await Promise.all([
