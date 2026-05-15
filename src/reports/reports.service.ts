@@ -921,9 +921,9 @@ export class ReportsService {
                                 p.costo AS costo,
                                 v.porcentaje AS iva_porcentaje,
                                 (p.costo * i.cantidad) AS costo_total,
-                                (p.costo * (v.porcentaje / 100)) AS valor_iva,
+                                (p.precioventa * (v.porcentaje / 100)) AS valor_iva,
                                 p.precioventa AS precio_venta,
-                                IFNULL(p.precioventa / NULLIF(1 + IFNULL(v.porcentaje, 0) / 100, 0), p.precioventa) AS precio_antes_iva,
+                                p.precioventa AS precio_antes_iva,
                                 (p.precioventa * i.cantidad) AS valorizado,
                                 p.ultcosto AS ultimo_costo,
                                 (p.ultcosto * i.cantidad) AS costo_ponderado,
@@ -995,12 +995,13 @@ export class ReportsService {
                     SELECT
                         SUM(i.cantidad) AS inventoryStock,
                         SUM(p.ultcosto * i.cantidad) AS averageInventoryCost,
-                        SUM(p.costo * i.cantidad) AS inventoryCost,
-                        SUM(p.precioventa * i.cantidad) AS inventoryPrice,
+                        SUM(p.ultcosto * i.cantidad) AS inventoryCost,
+                        SUM(
+                            p.precioventa * i.cantidad
+                        ) AS inventoryPrice,
                         SUM(
                             (p.precioventa * i.cantidad)
-                            - ((p.precioventa * (IFNULL(v.porcentaje, 0) / 100)) + IF(p.impuestoico = 1, p.valorico, 0)) * i.cantidad
-                            - (p.costo * i.cantidad)
+                            - (p.ultcosto * i.cantidad)
                         ) AS profit,
                         CASE 
                             WHEN ? = 0 THEN 'TODOS LOS ALMACENES'
