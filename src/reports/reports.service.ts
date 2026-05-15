@@ -921,10 +921,10 @@ export class ReportsService {
                                 p.costo AS costo,
                                 v.porcentaje AS iva_porcentaje,
                                 (p.costo * i.cantidad) AS costo_total,
-                                (p.precioventa * (v.porcentaje / 100)) AS valor_iva,
+                                (p.precioventa - IFNULL(p.precioventa / NULLIF(1 + IFNULL(v.porcentaje, 0) / 100, 0), p.precioventa)) AS valor_iva,
                                 p.precioventa AS precio_venta,
-                                p.precioventa AS precio_antes_iva,
-                                (p.precioventa * i.cantidad) AS valorizado,
+                                IFNULL(p.precioventa / NULLIF(1 + IFNULL(v.porcentaje, 0) / 100, 0), p.precioventa) AS precio_antes_iva,
+                                (IFNULL(p.precioventa / NULLIF(1 + IFNULL(v.porcentaje, 0) / 100, 0), p.precioventa) * i.cantidad) AS valorizado,
                                 p.ultcosto AS ultimo_costo,
                                 (p.ultcosto * i.cantidad) AS costo_ponderado,
                                 a.nomalmacen AS nombre_almacen,
@@ -997,10 +997,10 @@ export class ReportsService {
                         SUM(p.ultcosto * i.cantidad) AS averageInventoryCost,
                         SUM(p.ultcosto * i.cantidad) AS inventoryCost,
                         SUM(
-                            p.precioventa * i.cantidad
+                            (IFNULL(p.precioventa / NULLIF(1 + IFNULL(v.porcentaje, 0) / 100, 0), p.precioventa) * i.cantidad)
                         ) AS inventoryPrice,
                         SUM(
-                            (p.precioventa * i.cantidad)
+                            (IFNULL(p.precioventa / NULLIF(1 + IFNULL(v.porcentaje, 0) / 100, 0), p.precioventa) * i.cantidad)
                             - (p.ultcosto * i.cantidad)
                         ) AS profit,
                         CASE 
