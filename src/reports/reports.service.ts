@@ -1003,6 +1003,12 @@ export class ReportsService {
                             (IFNULL(p.precioventa / NULLIF(1 + IFNULL(v.porcentaje, 0) / 100, 0), p.precioventa) * i.cantidad)
                             - (p.ultcosto * i.cantidad)
                         ) AS profit,
+                        SUM(
+                            (p.ultcosto * i.cantidad * IFNULL(v.porcentaje, 0) / (100 + IFNULL(v.porcentaje, 0)))
+                        ) AS ivaTotalCompras,
+                        SUM(
+                            ((p.precioventa - IFNULL(p.precioventa / NULLIF(1 + IFNULL(v.porcentaje, 0) / 100, 0), p.precioventa)) * i.cantidad)
+                        ) AS ivaTotalVentas,
                         CASE 
                             WHEN ? = 0 THEN 'TODOS LOS ALMACENES'
                             ELSE MAX(a.nomalmacen)
