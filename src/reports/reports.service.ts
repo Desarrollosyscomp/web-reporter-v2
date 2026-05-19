@@ -927,6 +927,7 @@ export class ReportsService {
                                 (IFNULL(p.precioventa / NULLIF(1 + IFNULL(v.porcentaje, 0) / 100, 0), p.precioventa) * i.cantidad) AS valorizado,
                                 p.ultcosto AS ultimo_costo,
                                 (p.ultcosto * i.cantidad) AS costo_ponderado,
+                                (p.ultcosto * i.cantidad * IFNULL(v.porcentaje, 0) / (100 + IFNULL(v.porcentaje, 0))) AS iva_compras,
                                 a.nomalmacen AS nombre_almacen,
                                 IF(p.impuestoico = 1, p.valorico, 0) AS valor_ico
                             FROM productos p
