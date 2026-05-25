@@ -1,17 +1,12 @@
 import { IsOptional, IsString } from "class-validator";
+import { getColombiaDateString } from "../../common/date-utils";
 export class DashboardDto {
 
     @IsOptional()
     @IsString()
-    readonly init_date?: string = DashboardDto.getColombiaDate();
+    readonly init_date?: string = getColombiaDateString();
 
     @IsOptional()
     @IsString()
-    readonly end_date?: string = DashboardDto.getColombiaDate();
-
-    private static getColombiaDate(): string {
-        const date = new Date();
-        const colDate = new Date(date.getTime() - (5 * 60 * 60 * 1000));
-        return colDate.toISOString().split('T')[0].replace(/-/g, '');
-    }
+    readonly end_date?: string = getColombiaDateString();
 }

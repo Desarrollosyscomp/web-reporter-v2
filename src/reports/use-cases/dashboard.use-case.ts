@@ -1,6 +1,7 @@
 import { UseCaseResponse } from "../../local-responses/classes/use-case-response";
 import { TUseCaseResponse } from "../../local-responses/response-types/use-case-response.type";
 import { ReportsService } from "../reports.service";
+import { getColombiaNow } from "../../common/date-utils";
 
 export type TRange = {
     summary_range: {
@@ -88,10 +89,10 @@ export class DashboardUseCase {
     }
     private parseDate(init_date: string, end_date: string): TRange {
 
-        const today = new Date();
+        const today = getColombiaNow();
         const init = init_date;
         const end = end_date;
-        const sevenDaysAgo = new Date();
+        const sevenDaysAgo = new Date(today);
         sevenDaysAgo.setDate(today.getDate() - 7);
         const startDateSevenDays = this.formatToYYYYMMDD(sevenDaysAgo);
         const endDateSevenDays = this.formatToYYYYMMDD(today);
