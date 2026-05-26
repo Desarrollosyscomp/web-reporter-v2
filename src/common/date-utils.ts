@@ -1,18 +1,22 @@
-const COL_TZ = 'America/Bogota';
+const COL_UTC_OFFSET = 5;
 
-const dateFormatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: COL_TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-});
+function getColombiaDate(): { year: number; month: number; day: number } {
+    const now = new Date();
+    const colombiaMs = now.getTime() - COL_UTC_OFFSET * 60 * 60 * 1000;
+    const colombiaDate = new Date(colombiaMs);
+    return {
+        year: colombiaDate.getUTCFullYear(),
+        month: colombiaDate.getUTCMonth() + 1,
+        day: colombiaDate.getUTCDate(),
+    };
+}
 
 export function getColombiaNow(): Date {
-    const str = dateFormatter.format(new Date());
-    const [year, month, day] = str.split('-').map(Number);
+    const { year, month, day } = getColombiaDate();
     return new Date(Date.UTC(year, month - 1, day));
 }
 
 export function getColombiaDateString(): string {
-    return dateFormatter.format(new Date()).replace(/-/g, '');
+    const { year, month, day } = getColombiaDate();
+    return `${year}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}`;
 }
