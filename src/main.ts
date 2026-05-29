@@ -29,7 +29,9 @@ async function bootstrap() {
   app.useGlobalInterceptors(new LoggingInterceptor());
   globalCache = app.get<Cache>(CACHE_MANAGER);
   const server = app.getHttpServer();
-  server.setTimeout?.(120000);
+  server.setTimeout?.(500000);
+  server.keepAliveTimeout = 500000;
+  server.headersTimeout = 500000;
 
   const config = new DocumentBuilder()
     .setTitle('Web Reports API')
@@ -62,6 +64,6 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const port = configService.get<number>('API_PORT', 3200);
   await app.listen(process.env.API_PORT || 3200);
-  logger.log('server is listening on port:' + port)
+  logger.log('server is listening on port:' + port);
 }
 bootstrap();
