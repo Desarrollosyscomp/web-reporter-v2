@@ -11,8 +11,8 @@ function getColombiaDate(now: Date = new Date()): { year: number; month: number;
 }
 
 export function getColombiaNow(now: Date = new Date()): Date {
-    const { year, month, day } = getColombiaDate(now);
-    return new Date(Date.UTC(year, month - 1, day));
+    const colombiaMs = now.getTime() - COL_UTC_OFFSET * 60 * 60 * 1000;
+    return new Date(colombiaMs);
 }
 
 export function getColombiaDateString(now: Date = new Date()): string {

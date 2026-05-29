@@ -89,9 +89,10 @@ export class DashboardUseCase {
     }
     private parseDate(): TRange {
         const today = getColombiaNow();
+        console.log(today)
         const todayStr = getColombiaDateString();
         const sevenDaysAgo = new Date(today);
-        sevenDaysAgo.setDate(today.getUTCDate() - 7);
+        sevenDaysAgo.setDate(today.getDate() - 7);
         const startDateSevenDays = this.formatToYYYYMMDD(sevenDaysAgo);
         const endDateSevenDays = this.formatToYYYYMMDD(today);
 
@@ -107,9 +108,9 @@ export class DashboardUseCase {
         };
     }
     private formatToYYYYMMDD(date: Date): string {
-        const year = date.getUTCFullYear();
-        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-        const day = String(date.getUTCDate()).padStart(2, '0');
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
         return `${year}${month}${day}`;
     }
 
