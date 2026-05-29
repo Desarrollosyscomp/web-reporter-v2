@@ -273,8 +273,7 @@ export class ReportsController {
         example: '20260410'
     })
     public async dashboard(@Res() response: Response, @Req() req: Request, @Query() dashboardDto: DashboardDto): Promise<Response | HttpException> {
-        const { init_date, end_date } = dashboardDto;
-        const { data, status } = await dashboardUseCaseCompositor(req).main(init_date, end_date);
+        const { data, status } = await dashboardUseCaseCompositor(req).main();
         const httpStatus = getHttpStatusReports('dashboard', status || 1);
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }

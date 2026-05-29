@@ -1,7 +1,7 @@
 import { UseCaseResponse } from "../../local-responses/classes/use-case-response";
 import { TUseCaseResponse } from "../../local-responses/response-types/use-case-response.type";
 import { ReportsService } from "../reports.service";
-import { getColombiaNow } from "../../common/date-utils";
+import { getColombiaNow, getColombiaDateString } from "../../common/date-utils";
 
 export type TRange = {
     summary_range: {
@@ -64,8 +64,8 @@ type TCumulativeSales = {
 export class DashboardUseCase {
     public constructor(private readonly reportsService: ReportsService) { }
 
-    public async main(init_date?: string, end_date?: string): Promise<TUseCaseResponse> {
-        const range = this.parseDate(init_date || '', end_date || '');
+    public async main(): Promise<TUseCaseResponse> {
+        const range = this.parseDate();
         const { data, error } = await this.reportsService.dashboard(range);
         const status = this.defineStatus(error || false);
         const totalSalesDay = this.totalSales(data.salesDay);
@@ -87,20 +87,18 @@ export class DashboardUseCase {
     private defineStatus(error: boolean): number {
         return error ? 0 : 1;
     }
-    private parseDate(init_date: string, end_date: string): TRange {
-
+    private parseDate(): TRange {
         const today = getColombiaNow();
-        const init = init_date;
-        const end = end_date;
+        const todayStr = getColombiaDateString();
         const sevenDaysAgo = new Date(today);
-        sevenDaysAgo.setDate(today.getDate() - 7);
+        sevenDaysAgo.setDate(today.getUTCDate() - 7);
         const startDateSevenDays = this.formatToYYYYMMDD(sevenDaysAgo);
         const endDateSevenDays = this.formatToYYYYMMDD(today);
 
         return {
             summary_range: {
-                init,
-                end
+                init: todayStr,
+                end: todayStr
             },
             weekly_range: {
                 from: startDateSevenDays,
@@ -116,12 +114,9 @@ export class DashboardUseCase {
     }
 
     private totalSales(data: any[]): TSalesDay {
-        // Aplicar corrección de desbordamiento a datos individuales solo para fechas específicas
         const correctedData = data.map(element => {
-            // Solo aplicar corrección para la fecha 20260417 que tenía desbordamiento conocido
             const shouldCorrect = element.fecha === "20260417" && (element.costoacum < 100 || element.costoacum > element.total * 10);
             if (shouldCorrect) {
-                // Calcular costo correcto para este registro específico
                 const correctedCost = 1974899.08 * (element.total / 6827500); // Proporción del total
                 return {
                     ...element,
