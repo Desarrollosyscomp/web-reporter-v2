@@ -29,9 +29,9 @@ async function bootstrap() {
   app.useGlobalInterceptors(new LoggingInterceptor());
   globalCache = app.get<Cache>(CACHE_MANAGER);
   const server = app.getHttpServer();
-  server.setTimeout?.(500000);
-  server.keepAliveTimeout = 500000;
-  server.headersTimeout = 500000;
+  server.setTimeout?.(1500000);
+  server.keepAliveTimeout = 1500000;
+  server.headersTimeout = 1500000;
 
   const config = new DocumentBuilder()
     .setTitle('Web Reports API')
