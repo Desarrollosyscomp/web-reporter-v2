@@ -1,103 +1,146 @@
-import { TPaginatedServiceResponse, TServiceResponse } from "../local-responses/response-types/service-response.type";
-import { DatabaseConnection } from "../database/database.interface";
-import { TRange } from "./use-cases/dashboard.use-case";
+import {
+  TPaginatedServiceResponse,
+  TServiceResponse,
+} from '../local-responses/response-types/service-response.type';
+import { DatabaseConnection } from '../database/database.interface';
+import { TRange } from './use-cases/dashboard.use-case';
 
 export class ReportsService {
-    public constructor(private readonly db: DatabaseConnection) { }
+  public constructor(private readonly db: DatabaseConnection) {}
 
-    public async salesDay(init_date: string): Promise<TServiceResponse> {
-        const connection = await this.db.getConnection();
+  public async salesDay(init_date: string): Promise<TServiceResponse> {
+    const connection = await this.db.getConnection();
 
-        try {
-            const query = `
+    try {
+      const query = `
         SELECT
-            f.fecha,
-            f.idalmacen,
-            SUM(f.valortotal) AS total,
-            COUNT(DISTINCT f.idfactura) AS cantfact,
-            SUM(f.valretenciones) AS retencion,
-            SUM(f.valimpuesto) AS ivaimp,
-            SUM(f.subtotal) AS subtot,
-            SUM(f.valdescuentos) AS sumdesc,
-            SUM(f.otrosimpuestos) AS otrosimpuestos,
-            SUM(f.impuestoinc) AS impuestoinc,
-            IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
-            IFNULL((SELECT SUM(dv.valordev) FROM devventas dv INNER JOIN facturas f2 ON dv.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS valordev,
-            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura IN (SELECT idfactura FROM facturas WHERE fecha = f.fecha AND idalmacen = f.idalmacen AND estado = 0)), 0) AS prodvendid,
-            IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura IN (SELECT idfactura FROM facturas WHERE fecha = f.fecha AND idalmacen = f.idalmacen AND estado = 0)), 0) AS costoacum,
-            SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
-            alm.nomalmacen
-        FROM facturas f
-        INNER JOIN almacenes alm
-            ON f.idalmacen = alm.idalmacen
-            AND alm.idempresa = 1
-                        WHERE
-            f.fecha = ?
-            AND f.estado = 0
-        GROUP BY
-            f.fecha,
-            f.idalmacen,
-            alm.nomalmacen
-        ORDER BY
-            f.idalmacen ASC
+    f.fecha,
+    f.idalmacen,
+
+    SUM(f.valortotal) AS total,
+    COUNT(DISTINCT f.idfactura) AS cantfact,
+    SUM(f.valretenciones) AS retencion,
+    SUM(f.valimpuesto) AS ivaimp,
+    SUM(f.subtotal) AS subtot,
+    SUM(f.valdescuentos) AS sumdesc,
+    SUM(f.otrosimpuestos) AS otrosimpuestos,
+    SUM(f.impuestoinc) AS impuestoinc,
+
+    COALESCE(prop.valpropina, 0) AS valpropina,
+    COALESCE(dev.valordev, 0) AS valordev,
+    COALESCE(det.prodvendid, 0) AS prodvendid,
+    COALESCE(det.costoacum, 0) AS costoacum,
+
+    SUM(f.valortotal) + COALESCE(prop.valpropina, 0) AS totalconprop,
+
+    alm.nomalmacen
+
+FROM facturas f
+
+INNER JOIN almacenes alm
+    ON alm.idalmacen = f.idalmacen
+   AND alm.idempresa = 1
+
+/* PROPINA (pre-agrupada) */
+LEFT JOIN (
+    SELECT idfactura, SUM(propina) AS valpropina
+    FROM ordenes
+    GROUP BY idfactura
+) prop ON prop.idfactura = f.idfactura
+
+/* DEVOLUCIONES (pre-agrupadas) */
+LEFT JOIN (
+    SELECT idfactura, SUM(valordev) AS valordev
+    FROM devventas
+    GROUP BY idfactura
+) dev ON dev.idfactura = f.idfactura
+
+/* DETALLE FACTURA (pre-agrupado) */
+LEFT JOIN (
+    SELECT
+        df.idfactura,
+        SUM(df.cantidad) AS prodvendid,
+        SUM(df.cantidad * p.ultcosto) AS costoacum
+    FROM detfacturas df
+    INNER JOIN productos p ON p.idproducto = df.idproducto
+    GROUP BY df.idfactura
+) det ON det.idfactura = f.idfactura
+
+WHERE
+    f.fecha = ?
+    AND f.estado = 0
+
+GROUP BY
+    f.fecha,
+    f.idalmacen,
+    alm.nomalmacen
+
+ORDER BY
+    f.idalmacen ASC
       `;
-            const [rows] = await connection.query(query, [init_date]);
-
-            const correctedRows = await Promise.all(rows.map(async (sale) => {
-                if (sale.costoacum > sale.total * 10) {
-
-                    try {
-                        const productosQuery = `
+      console.time('query');
+      const [rows] = await connection.query(query, [init_date]);
+      console.timeEnd('query');
+      console.time('correctedRows');
+      const correctedRows = await Promise.all(
+        rows.map(async (sale) => {
+          if (sale.costoacum > sale.total * 10) {
+            try {
+              const productosQuery = `
                             SELECT COALESCE(SUM(df.cantidad), 0) AS total_productos
                             FROM facturas f
                             LEFT JOIN detfacturas df ON f.idfactura = df.idfactura
                             WHERE f.fecha = ? AND f.idalmacen = ? AND f.estado = 0
                         `;
 
-                        const [productosResult] = await connection.query(productosQuery, [init_date, sale.idalmacen]);
-                        const totalProductos = productosResult[0].total_productos || 0;
-                        const costoEstimado = (sale.total - (sale.valordev || 0)) * 0.25; // 25% de las ventas netas
-                        return {
-                            ...sale,
-                            prodvendid: totalProductos,
-                            costoacum: costoEstimado
-                        };
-
-                    } catch (error) {
-                        return { ...sale, prodvendid: 0, costoacum: 0 };
-                    }
-                }
-                return sale;
-            }));
-
-            // Retornar los datos corregidos
-            return { data: { sales: correctedRows }, error: false };
-
-        } catch (error) {
-            return { error: true, data: error.message };
-
-        } finally {
-            if (connection) {
-                this.db.release(connection);
+              const [productosResult] = await connection.query(productosQuery, [
+                init_date,
+                sale.idalmacen,
+              ]);
+              const totalProductos = productosResult[0].total_productos || 0;
+              const costoEstimado = (sale.total - (sale.valordev || 0)) * 0.25; // 25% de las ventas netas
+              return {
+                ...sale,
+                prodvendid: totalProductos,
+                costoacum: costoEstimado,
+              };
+            } catch (error) {
+              return { ...sale, prodvendid: 0, costoacum: 0 };
             }
+          }
+          return sale;
+        }),
+      );
+      console.timeEnd('correctedRows');
 
-        }
-
+      // Retornar los datos corregidos
+      return { data: { sales: correctedRows }, error: false };
+    } catch (error) {
+      return { error: true, data: error.message };
+    } finally {
+      if (connection) {
+        this.db.release(connection);
+      }
     }
+  }
 
-    public async detailSalesDayByWarehouse(date: string, warehouse_id: number,
-        page: number, limit: number): Promise<TPaginatedServiceResponse> {
-        const connection = await this.db.getConnection();
-        try {
-            const offset = (page - 1) * limit;
+  public async detailSalesDayByWarehouse(
+    date: string,
+    warehouse_id: number,
+    page: number,
+    limit: number,
+  ): Promise<TPaginatedServiceResponse> {
+    const connection = await this.db.getConnection();
+    try {
+      const offset = (page - 1) * limit;
 
-            const query = `SELECT idfactura, numero, fecha, subtotal, valimpuesto, valortotal, valdescuentos, hora, almacenes.idalmacen, almacenes.nomalmacen,  estado
+      const query = `SELECT idfactura, numero, fecha, subtotal, valimpuesto, valortotal, valdescuentos, hora, almacenes.idalmacen, almacenes.nomalmacen,  estado
             FROM facturas
             LEFT JOIN almacenes ON (facturas.idalmacen = almacenes.idalmacen AND almacenes.idempresa = 1)
             WHERE fecha = ? AND almacenes.idalmacen = ? AND estado = 0
             LIMIT ? OFFSET ?
             `;
-            const summaryQuery = `
+      const summaryQuery = `
             SELECT 
             COALESCE(SUM(f.subtotal),0) as subtotal,
             COALESCE(SUM(f.valimpuesto),0) as total_impuestos,
@@ -113,7 +156,7 @@ export class ReportsService {
             WHERE f.fecha = ? AND f.idalmacen = ? AND f.estado = 0
             `;
 
-            const paymentMethodsQuery = `
+      const paymentMethodsQuery = `
             SELECT 
                 fp.idpago,
                 fp.nompago,
@@ -128,42 +171,47 @@ export class ReportsService {
             GROUP BY fp.idpago, fp.nompago
             ORDER BY fp.nompago
             `;
-            const countQuery = `
+      const countQuery = `
             SELECT COUNT(*) as total 
             FROM facturas f
             INNER JOIN almacenes alm ON f.idalmacen = alm.idalmacen AND alm.idempresa = 1
             WHERE f.fecha = ? AND f.idalmacen = ? AND f.estado = 0
             `;
-            const params = [date, warehouse_id, limit, offset];
-            const countParams = [date, warehouse_id];
-            const summaryParams = [date, warehouse_id];
+      const params = [date, warehouse_id, limit, offset];
+      const countParams = [date, warehouse_id];
+      const summaryParams = [date, warehouse_id];
 
-            const [rows, count, summary, paymentMethods] = await Promise.all([
-                connection.query(query, params),
-                connection.execute(countQuery, countParams),
-                connection.query(summaryQuery, summaryParams),
-                connection.query(paymentMethodsQuery, summaryParams)
-            ]);
+      const [rows, count, summary, paymentMethods] = await Promise.all([
+        connection.query(query, params),
+        connection.execute(countQuery, countParams),
+        connection.query(summaryQuery, summaryParams),
+        connection.query(paymentMethodsQuery, summaryParams),
+      ]);
 
-            return {
-                data: [rows[0], count[0][0].total, { ...summary[0][0], paymentMethods: paymentMethods[0] }],
-                error: false
-            }
-        }
-        catch (error: any) {
-            return { error: true, data: error.message };
-
-        } finally {
-            if (connection) {
-                this.db.release(connection);
-            }
-        }
+      return {
+        data: [
+          rows[0],
+          count[0][0].total,
+          { ...summary[0][0], paymentMethods: paymentMethods[0] },
+        ],
+        error: false,
+      };
+    } catch (error: any) {
+      return { error: true, data: error.message };
+    } finally {
+      if (connection) {
+        this.db.release(connection);
+      }
     }
+  }
 
-    public async invoiceDetailByWarehouseAndNumber(warehouse_id: number, invoice_number: number): Promise<TServiceResponse> {
-        const connection = await this.db.getConnection();
-        try {
-            const query = `
+  public async invoiceDetailByWarehouseAndNumber(
+    warehouse_id: number,
+    invoice_number: number,
+  ): Promise<TServiceResponse> {
+    const connection = await this.db.getConnection();
+    try {
+      const query = `
             SELECT f.numero, f.valimpuesto, f.subtotal, f.valdescuentos, f.valortotal, prod.descripcion, 
             df.valorprod, df.descuento, df.porcdesc, f.fecha, t.nombres, t.apellidos, df.cantidad,
             f.idalmacen,(prod.ultcosto * df.cantidad)AS total_costo
@@ -174,7 +222,7 @@ export class ReportsService {
             WHERE f.idalmacen = ? AND  f.numero= ?
             `;
 
-            const paymentMethodsQuery = `
+      const paymentMethodsQuery = `
             SELECT 
                 fp.idpago,
                 fp.nompago,
@@ -189,25 +237,22 @@ export class ReportsService {
             ORDER BY fp.nompago
             `;
 
-            const params = [
-                warehouse_id,
-                invoice_number
-            ];
-            const paymentMethodsParams = [
-                invoice_number,
-                warehouse_id
-            ];
-            const [rows] = await connection.query(query, params);
-            const [paymentMethods] = await connection.query(paymentMethodsQuery, paymentMethodsParams);
-            return { data: { invoice: rows, paymentMethods }, error: false };
-        } catch (error: any) {
-            return { error: true, data: error.message };
-        } finally {
-            if (connection) {
-                this.db.release(connection);
-            }
-        }
+      const params = [warehouse_id, invoice_number];
+      const paymentMethodsParams = [invoice_number, warehouse_id];
+      const [rows] = await connection.query(query, params);
+      const [paymentMethods] = await connection.query(
+        paymentMethodsQuery,
+        paymentMethodsParams,
+      );
+      return { data: { invoice: rows, paymentMethods }, error: false };
+    } catch (error: any) {
+      return { error: true, data: error.message };
+    } finally {
+      if (connection) {
+        this.db.release(connection);
+      }
     }
+  }
 
     public async getCumulativeSales(init_date: string, end_date: string, page: number,
         limit: number, warehouse_id: number): Promise<TPaginatedServiceResponse> {
@@ -247,7 +292,8 @@ export class ReportsService {
             alm.nomalmacen
         ORDER BY
             f.idalmacen ASC
-      ` : `
+      `
+          : `
         SELECT
             f.fecha,
             f.idalmacen,
@@ -282,17 +328,26 @@ export class ReportsService {
             f.idalmacen
         LIMIT ? OFFSET ?;
       `;
-
-            const countQuery = `
-                SELECT COUNT(*) AS total
-                    FROM (
-                        SELECT a.idalmacen, a.fecha
-                        FROM facturas a
-                        WHERE a.fecha BETWEEN ? AND ?
-                        AND a.estado = 0
-                        AND (? = 0 OR a.idalmacen IN (?))
-                        GROUP BY a.idalmacen, a.fecha
-                    ) x;
+      const countQuery = `
+SELECT COUNT(*) AS total
+FROM (
+    SELECT
+        f.fecha,
+        f.idalmacen,
+        alm.nomalmacen
+    FROM facturas f
+    INNER JOIN almacenes alm
+        ON f.idalmacen = alm.idalmacen
+        AND alm.idempresa = 1
+    WHERE
+        f.fecha BETWEEN ? AND ?
+        AND f.estado = 0
+        AND (? = 0 OR f.idalmacen IN (?))
+    GROUP BY
+        f.fecha,
+        f.idalmacen,
+        alm.nomalmacen
+) x;
             `;
             // Usar mismo summary query que sales-day cuando las fechas son iguales
             const summaryQuery = init_date === end_date ? `
@@ -404,87 +459,122 @@ export class ReportsService {
                 connection.query(summaryQuery, totalParams)
             ]);
 
-            // Aplicar corrección al summary si tiene valores desbordados
-            const currentSummary = summary[0][0];
-            let correctedSummary = {
-                ...currentSummary,
-                debug_condition: currentSummary.totalCost > currentSummary.totalSales * 10,
-                debug_totalCost: currentSummary.totalCost,
-                debug_threshold: currentSummary.totalSales * 10
-            };
-            
-            // Aplicar corrección cuando hay desbordamiento
-            if (currentSummary.totalCost > currentSummary.totalSales * 10) {
-                try {
-                    // Calcular productos y costos correctos para el summary
-                    const summaryProductsQuery = init_date === end_date ? `
-                        SELECT 
-                            COALESCE(SUM(df.cantidad), 0) AS total_productos,
-                            COALESCE(SUM(p.ultcosto * df.cantidad), 0) AS total_costos
-                        FROM facturas f
-                        LEFT JOIN detfacturas df ON f.idfactura = df.idfactura
-                        LEFT JOIN productos p ON df.idproducto = p.idproducto
-                        WHERE f.fecha = ?
-                        AND f.estado = 0
-                        AND (? = 0 OR f.idalmacen IN (?))
-                    ` : `
-                        SELECT 
-                            COALESCE(SUM(df.cantidad), 0) AS total_productos,
-                            COALESCE(SUM(p.ultcosto * df.cantidad), 0) AS total_costos
-                        FROM facturas f
-                        LEFT JOIN detfacturas df ON f.idfactura = df.idfactura
-                        LEFT JOIN productos p ON df.idproducto = p.idproducto
-                        WHERE f.fecha BETWEEN ? AND ?
-                        AND f.estado = 0
-                        AND (? = 0 OR f.idalmacen IN (?))
-                    `;
-                    
-                    const [summaryProductsResult] = await connection.query(summaryProductsQuery, init_date === end_date ? [init_date, warehouse_id, warehouse_id] : [init_date, end_date, warehouse_id, warehouse_id]);
-                    const summaryData = summaryProductsResult[0];
-                    
-                    correctedSummary = {
-                        ...currentSummary,
-                        totalProducts: summaryData.total_productos || 0,
-                        totalCost: summaryData.total_costos || 0,
-                        profit: (currentSummary.totalSales || 0) - (summaryData.total_costos || 0)
-                    };
-                } catch (error) {
-                    // Si falla, dejar valores originales
-                }
-            }
+      // const [rows, count, summary] = await Promise.all([
+      //     connection.query(query, params),
+      //     connection.execute(countQuery, countParams),
+      //     connection.query(summaryQuery, totalParams)
+      // ]);
+      // Aplicar corrección al summary si tiene valores desbordados
+      // ============================================
+      // Obtener resumen principal
+      // ============================================
+      const currentSummary = summary[0][0];
 
-            // Aplicar corrección de desbordamiento a registros individuales
-            const correctedRows = rows[0].map(row => {
-                if (row.costoacum > row.total * 10) {
-                    // Calcular costo correcto para este registro específico
-                    const correctedCost = 1974899.08 * (row.total / 6827500); // Proporción del total
-                    return {
-                        ...row,
-                        costoacum: correctedCost
-                    };
-                }
-                return row;
-            });
+      // ============================================
+      // Consulta para calcular costo total y
+      // cantidad total de productos vendidos
+      // ============================================
+      const summaryProductsQuery =
+        init_date === end_date
+          ? `
+        SELECT
+            COALESCE(SUM(df.cantidad),0) AS totalProducts,
+            COALESCE(SUM(df.cantidad * p.ultcosto),0) AS totalCost
+        FROM facturas f
+        INNER JOIN detfacturas df
+            ON df.idfactura = f.idfactura
+        INNER JOIN productos p
+            ON p.idproducto = df.idproducto
+        WHERE
+            f.fecha = ?
+            AND f.estado = 0
+            AND (? = 0 OR f.idalmacen IN (?))
+    `
+          : `
+        SELECT
+            COALESCE(SUM(df.cantidad),0) AS totalProducts,
+            COALESCE(SUM(df.cantidad * p.ultcosto),0) AS totalCost
+        FROM facturas f
+        INNER JOIN detfacturas df
+            ON df.idfactura = f.idfactura
+        INNER JOIN productos p
+            ON p.idproducto = df.idproducto
+        WHERE
+            f.fecha BETWEEN ? AND ?
+            AND f.estado = 0
+            AND (? = 0 OR f.idalmacen IN (?))
+    `;
 
-            return {
-                data: [correctedRows, count[0][0].total, correctedSummary],
-                error: false,
-            };
-        } catch (error: any) {
-            return { error: true, data: error.message };
-        } finally {
-            if (connection) {
-                this.db.release(connection);
-            }
+      // ============================================
+      // Ejecutar consulta de productos y costos
+      // ============================================
+      const [summaryProductsResult] = await connection.query(
+        summaryProductsQuery,
+        init_date === end_date
+          ? [init_date, warehouse_id, warehouse_id]
+          : [init_date, end_date, warehouse_id, warehouse_id],
+      );
+
+      const summaryData = summaryProductsResult[0];
+
+      // ============================================
+      // Construir resumen final
+      // ============================================
+      const correctedSummary = {
+        ...currentSummary,
+
+        // Cantidad total de productos vendidos
+        totalProducts: Number(summaryData.totalProducts || 0),
+
+        // Costo acumulado de los productos vendidos
+        totalCost: Number(summaryData.totalCost || 0),
+
+        // Ventas menos devoluciones
+        salesMinusReturns:
+          Number(currentSummary.totalSales || 0) -
+          Number(currentSummary.returns || 0),
+
+        // Utilidad
+        profit:
+          Number(currentSummary.totalSales || 0) -
+          Number(summaryData.totalCost || 0),
+      };
+
+      // Aplicar corrección de desbordamiento a registros individuales
+      const correctedRows = rows[0].map((row) => {
+        if (row.costoacum > row.total * 10) {
+          // Calcular costo correcto para este registro específico
+          const correctedCost = 1974899.08 * (row.total / 6827500); // Proporción del total
+          return {
+            ...row,
+            costoacum: correctedCost,
+          };
         }
+        return row;
+      });
+
+      return {
+        data: [correctedRows, count[0][0].total, correctedSummary],
+        error: false,
+      };
+    } catch (error: any) {
+      return { error: true, data: error.message };
+    } finally {
+      if (connection) {
+        this.db.release(connection);
+      }
     }
+  }
 
-    public async cashCounts(date: string, warehouse_id: number): Promise<TServiceResponse> {
-        const connection = await this.db.getConnection();
-        try {
-            const _date = date.split(' ')[0];
+  public async cashCounts(
+    date: string,
+    warehouse_id: number,
+  ): Promise<TServiceResponse> {
+    const connection = await this.db.getConnection();
+    try {
+      const _date = date.split(' ')[0];
 
-            const query = `
+      const query = `
             SELECT
                 a.idarqueo,
                 a.fechaap,
@@ -571,25 +661,30 @@ export class ReportsService {
             AND DATE(a.fechaap) = ?
             ORDER BY a.fechaap;
             `;
-            const params = [warehouse_id, _date];
-            const [rows]: any = await connection.query(query, params);
-            return {
-                error: false,
-                data: { cash_balance: rows },
-            };
-        } catch (error: any) {
-            return { error: true, data: error.message };
-        } finally {
-            if (connection) this.db.release(connection);
-        }
+      const params = [warehouse_id, _date];
+      const [rows]: any = await connection.query(query, params);
+      return {
+        error: false,
+        data: { cash_balance: rows },
+      };
+    } catch (error: any) {
+      return { error: true, data: error.message };
+    } finally {
+      if (connection) this.db.release(connection);
     }
+  }
 
-    public async receivablePortfolio(init_date: string, end_date: string, page: number,
-        limit: number, warehouse_id: number): Promise<TPaginatedServiceResponse> {
-        const connection = await this.db.getConnection();
-        try {
-            const offset = (page - 1) * limit;
-            const query = `
+  public async receivablePortfolio(
+    init_date: string,
+    end_date: string,
+    page: number,
+    limit: number,
+    warehouse_id: number,
+  ): Promise<TPaginatedServiceResponse> {
+    const connection = await this.db.getConnection();
+    try {
+      const offset = (page - 1) * limit;
+      const query = `
                 SELECT
                     c.idcartera,
                     c.tipodoc,
@@ -623,9 +718,9 @@ export class ReportsService {
                 ORDER BY c.fechadoc ASC
                 LIMIT ? OFFSET ?;
             `;
-            const params = [warehouse_id, init_date, end_date, limit, offset];
-            const countParams = [warehouse_id, init_date, end_date];
-            const countQuery = `
+      const params = [warehouse_id, init_date, end_date, limit, offset];
+      const countParams = [warehouse_id, init_date, end_date];
+      const countQuery = `
                 SELECT COUNT(*) AS total
             FROM (
                 SELECT
@@ -643,7 +738,7 @@ export class ReportsService {
             ) AS total_rows;
             `;
 
-            const summaryQuery = `
+      const summaryQuery = `
                 SELECT
                     COALESCE(SUM(total_pagado),0) AS totalPayed,
                     COALESCE(SUM(saldo_pendiente),0) AS pendingPaid
@@ -663,27 +758,30 @@ export class ReportsService {
                     HAVING saldo_pendiente > 0
                 ) x;
             `;
-            const summaryParams = [warehouse_id, init_date, end_date];
+      const summaryParams = [warehouse_id, init_date, end_date];
 
-            const [rows, count, summary]: any = await Promise.all([
-                connection.query(query, params),
-                connection.query(countQuery, countParams),
-                connection.query(summaryQuery, summaryParams)
-            ]);
-            // Aplicar corrección al summary si tiene valores desbordados
-            const currentSummary = summary[0][0];
-            let correctedSummary = {
-                ...currentSummary,
-                debug_condition: currentSummary.totalCost > currentSummary.totalSales * 10,
-                debug_totalCost: currentSummary.totalCost,
-                debug_threshold: currentSummary.totalSales * 10
-            };
-            
-            // Aplicar corrección cuando hay desbordamiento
-            if (currentSummary.totalCost > currentSummary.totalSales * 10) {
-                try {
-                    // Calcular productos y costos correctos para el summary
-                    const summaryProductsQuery = init_date === end_date ? `
+      const [rows, count, summary]: any = await Promise.all([
+        connection.query(query, params),
+        connection.query(countQuery, countParams),
+        connection.query(summaryQuery, summaryParams),
+      ]);
+      // Aplicar corrección al summary si tiene valores desbordados
+      const currentSummary = summary[0][0];
+      let correctedSummary = {
+        ...currentSummary,
+        debug_condition:
+          currentSummary.totalCost > currentSummary.totalSales * 10,
+        debug_totalCost: currentSummary.totalCost,
+        debug_threshold: currentSummary.totalSales * 10,
+      };
+
+      // Aplicar corrección cuando hay desbordamiento
+      if (currentSummary.totalCost > currentSummary.totalSales * 10) {
+        try {
+          // Calcular productos y costos correctos para el summary
+          const summaryProductsQuery =
+            init_date === end_date
+              ? `
                         SELECT 
                             COALESCE(SUM(df.cantidad), 0) AS total_productos,
                             COALESCE(SUM(p.ultcosto * df.cantidad), 0) AS total_costos
@@ -693,7 +791,8 @@ export class ReportsService {
                         WHERE f.fecha = ?
                         AND f.estado = 0
                         AND (? = 0 OR f.idalmacen IN (?))
-                    ` : `
+                    `
+              : `
                         SELECT 
                             COALESCE(SUM(df.cantidad), 0) AS total_productos,
                             COALESCE(SUM(p.ultcosto * df.cantidad), 0) AS total_costos
@@ -704,52 +803,63 @@ export class ReportsService {
                         AND f.estado = 0
                         AND (? = 0 OR f.idalmacen IN (?))
                     `;
-                    
-                    const [summaryProductsResult] = await connection.query(summaryProductsQuery, init_date === end_date ? [init_date, warehouse_id, warehouse_id] : [init_date, end_date, warehouse_id, warehouse_id]);
-                    const summaryData = summaryProductsResult[0];
-                    
-                    correctedSummary = {
-                        ...currentSummary,
-                        totalProducts: summaryData.total_productos || 0,
-                        totalCost: summaryData.total_costos || 0,
-                        profit: (currentSummary.totalSales || 0) - (summaryData.total_costos || 0)
-                    };
-                } catch (error) {
-                    // Si falla, dejar valores originales
-                }
-            }
 
-            // Aplicar corrección de desbordamiento a registros individuales
-            const correctedRows = rows[0].map(row => {
-                if (row.costoacum > row.total * 10) {
-                    // Calcular costo correcto para este registro específico
-                    const correctedCost = 1974899.08 * (row.total / 6827500); // Proporción del total
-                    return {
-                        ...row,
-                        costoacum: correctedCost
-                    };
-                }
-                return row;
-            });
+          const [summaryProductsResult] = await connection.query(
+            summaryProductsQuery,
+            init_date === end_date
+              ? [init_date, warehouse_id, warehouse_id]
+              : [init_date, end_date, warehouse_id, warehouse_id],
+          );
+          const summaryData = summaryProductsResult[0];
 
-            return {
-                data: [correctedRows, count[0][0].total, correctedSummary],
-                error: false,
-            };
+          correctedSummary = {
+            ...currentSummary,
+            totalProducts: summaryData.total_productos || 0,
+            totalCost: summaryData.total_costos || 0,
+            profit:
+              (currentSummary.totalSales || 0) -
+              (summaryData.total_costos || 0),
+          };
         } catch (error) {
-            return { error: true, data: error.message };
-
-        } finally {
-            if (connection) this.db.release(connection);
+          // Si falla, dejar valores originales
         }
-    }
+      }
 
-    public async payablePortfolio(init_date: string, end_date: string,
-        page: number, limit: number, warehouse_id: number): Promise<TPaginatedServiceResponse> {
-        const connection = await this.db.getConnection();
-        try {
-            const offset = (page - 1) * limit;
-            const query = `
+      // Aplicar corrección de desbordamiento a registros individuales
+      const correctedRows = rows[0].map((row) => {
+        if (row.costoacum > row.total * 10) {
+          // Calcular costo correcto para este registro específico
+          const correctedCost = 1974899.08 * (row.total / 6827500); // Proporción del total
+          return {
+            ...row,
+            costoacum: correctedCost,
+          };
+        }
+        return row;
+      });
+
+      return {
+        data: [correctedRows, count[0][0].total, correctedSummary],
+        error: false,
+      };
+    } catch (error) {
+      return { error: true, data: error.message };
+    } finally {
+      if (connection) this.db.release(connection);
+    }
+  }
+
+  public async payablePortfolio(
+    init_date: string,
+    end_date: string,
+    page: number,
+    limit: number,
+    warehouse_id: number,
+  ): Promise<TPaginatedServiceResponse> {
+    const connection = await this.db.getConnection();
+    try {
+      const offset = (page - 1) * limit;
+      const query = `
                  SELECT
                         c.idcartera,
                         c.tipodoc,
@@ -783,9 +893,9 @@ export class ReportsService {
                     ORDER BY c.fechadoc ASC
                     LIMIT ? OFFSET ?;
                  `;
-            const params = [warehouse_id, init_date, end_date, limit, offset];
-            const countParams = [warehouse_id, init_date, end_date];
-            const countQuery = `
+      const params = [warehouse_id, init_date, end_date, limit, offset];
+      const countParams = [warehouse_id, init_date, end_date];
+      const countQuery = `
                 SELECT COUNT(*) AS total
                     FROM (
                         SELECT
@@ -803,7 +913,7 @@ export class ReportsService {
                     ) AS total_rows;
                     `;
 
-            const summaryQuery = `
+      const summaryQuery = `
                     SELECT
                         COALESCE(SUM(total_pagado),0) AS totalPayed,
                         COALESCE(SUM(saldo_pendiente),0) AS pendingPaid
@@ -823,26 +933,29 @@ export class ReportsService {
                         HAVING saldo_pendiente > 0
                     ) x;
             `;
-            const summaryParams = [warehouse_id, init_date, end_date];
-            const [rows, count, summary]: any = await Promise.all([
-                connection.query(query, params),
-                connection.query(countQuery, countParams),
-                connection.query(summaryQuery, summaryParams)
-            ]);
-            // Aplicar corrección al summary si tiene valores desbordados
-            const currentSummary = summary[0][0];
-            let correctedSummary = {
-                ...currentSummary,
-                debug_condition: currentSummary.totalCost > currentSummary.totalSales * 10,
-                debug_totalCost: currentSummary.totalCost,
-                debug_threshold: currentSummary.totalSales * 10
-            };
-            
-            // Aplicar corrección cuando hay desbordamiento
-            if (currentSummary.totalCost > currentSummary.totalSales * 10) {
-                try {
-                    // Calcular productos y costos correctos para el summary
-                    const summaryProductsQuery = init_date === end_date ? `
+      const summaryParams = [warehouse_id, init_date, end_date];
+      const [rows, count, summary]: any = await Promise.all([
+        connection.query(query, params),
+        connection.query(countQuery, countParams),
+        connection.query(summaryQuery, summaryParams),
+      ]);
+      // Aplicar corrección al summary si tiene valores desbordados
+      const currentSummary = summary[0][0];
+      let correctedSummary = {
+        ...currentSummary,
+        debug_condition:
+          currentSummary.totalCost > currentSummary.totalSales * 10,
+        debug_totalCost: currentSummary.totalCost,
+        debug_threshold: currentSummary.totalSales * 10,
+      };
+
+      // Aplicar corrección cuando hay desbordamiento
+      if (currentSummary.totalCost > currentSummary.totalSales * 10) {
+        try {
+          // Calcular productos y costos correctos para el summary
+          const summaryProductsQuery =
+            init_date === end_date
+              ? `
                         SELECT 
                             COALESCE(SUM(df.cantidad), 0) AS total_productos,
                             COALESCE(SUM(p.ultcosto * df.cantidad), 0) AS total_costos
@@ -852,7 +965,8 @@ export class ReportsService {
                         WHERE f.fecha = ?
                         AND f.estado = 0
                         AND (? = 0 OR f.idalmacen IN (?))
-                    ` : `
+                    `
+              : `
                         SELECT 
                             COALESCE(SUM(df.cantidad), 0) AS total_productos,
                             COALESCE(SUM(p.ultcosto * df.cantidad), 0) AS total_costos
@@ -863,54 +977,63 @@ export class ReportsService {
                         AND f.estado = 0
                         AND (? = 0 OR f.idalmacen IN (?))
                     `;
-                    
-                    const [summaryProductsResult] = await connection.query(summaryProductsQuery, init_date === end_date ? [init_date, warehouse_id, warehouse_id] : [init_date, end_date, warehouse_id, warehouse_id]);
-                    const summaryData = summaryProductsResult[0];
-                    
-                    correctedSummary = {
-                        ...currentSummary,
-                        totalProducts: summaryData.total_productos || 0,
-                        totalCost: summaryData.total_costos || 0,
-                        profit: (currentSummary.totalSales || 0) - (summaryData.total_costos || 0)
-                    };
-                } catch (error) {
-                    // Si falla, dejar valores originales
-                }
-            }
 
-            // Aplicar corrección de desbordamiento a registros individuales
-            const correctedRows = rows[0].map(row => {
-                if (row.costoacum > row.total * 10) {
-                    // Calcular costo correcto para este registro específico
-                    const correctedCost = 1974899.08 * (row.total / 6827500); // Proporción del total
-                    return {
-                        ...row,
-                        costoacum: correctedCost
-                    };
-                }
-                return row;
-            });
+          const [summaryProductsResult] = await connection.query(
+            summaryProductsQuery,
+            init_date === end_date
+              ? [init_date, warehouse_id, warehouse_id]
+              : [init_date, end_date, warehouse_id, warehouse_id],
+          );
+          const summaryData = summaryProductsResult[0];
 
-            return {
-                data: [correctedRows, count[0][0].total, correctedSummary],
-                error: false,
-            };
-
+          correctedSummary = {
+            ...currentSummary,
+            totalProducts: summaryData.total_productos || 0,
+            totalCost: summaryData.total_costos || 0,
+            profit:
+              (currentSummary.totalSales || 0) -
+              (summaryData.total_costos || 0),
+          };
         } catch (error) {
-            return { error: true, data: error.message };
-        } finally {
-
-            if (connection) this.db.release(connection);
+          // Si falla, dejar valores originales
         }
-    }
+      }
 
-    public async inventory(warehouse_id: number, limit: number,
-        page: number, search?: string): Promise<TPaginatedServiceResponse> {
-        const connection = await this.db.getConnection();
-        try {
-            const offset = (page - 1) * limit;
-            const searchParam = search ? `%${search}%` : null;
-            const query = `
+      // Aplicar corrección de desbordamiento a registros individuales
+      const correctedRows = rows[0].map((row) => {
+        if (row.costoacum > row.total * 10) {
+          // Calcular costo correcto para este registro específico
+          const correctedCost = 1974899.08 * (row.total / 6827500); // Proporción del total
+          return {
+            ...row,
+            costoacum: correctedCost,
+          };
+        }
+        return row;
+      });
+
+      return {
+        data: [correctedRows, count[0][0].total, correctedSummary],
+        error: false,
+      };
+    } catch (error) {
+      return { error: true, data: error.message };
+    } finally {
+      if (connection) this.db.release(connection);
+    }
+  }
+
+  public async inventory(
+    warehouse_id: number,
+    limit: number,
+    page: number,
+    search?: string,
+  ): Promise<TPaginatedServiceResponse> {
+    const connection = await this.db.getConnection();
+    try {
+      const offset = (page - 1) * limit;
+      const searchParam = search ? `%${search}%` : null;
+      const query = `
                           SELECT
                                 i.cantidad AS cantidad,
                                 p.idproducto AS idproducto,
@@ -947,37 +1070,37 @@ export class ReportsService {
                             ORDER BY p.codigo ASC, i.idalmacen ASC
                             LIMIT ? OFFSET ? `;
 
-            const params = [
-                warehouse_id,
-                warehouse_id,
-                searchParam,
-                searchParam,
-                searchParam,
-                searchParam,
-                limit,
-                offset
-            ];
-            const countParams = [
-                warehouse_id,
-                warehouse_id,
-                searchParam,
-                searchParam,
-                searchParam,
-                searchParam
-            ];
+      const params = [
+        warehouse_id,
+        warehouse_id,
+        searchParam,
+        searchParam,
+        searchParam,
+        searchParam,
+        limit,
+        offset,
+      ];
+      const countParams = [
+        warehouse_id,
+        warehouse_id,
+        searchParam,
+        searchParam,
+        searchParam,
+        searchParam,
+      ];
 
-            const summaryParams = [
-                warehouse_id,
-                warehouse_id,
-                warehouse_id,
-                searchParam,
-                searchParam,
-                searchParam,
-                searchParam,
-                warehouse_id
-            ];
+      const summaryParams = [
+        warehouse_id,
+        warehouse_id,
+        warehouse_id,
+        searchParam,
+        searchParam,
+        searchParam,
+        searchParam,
+        warehouse_id,
+      ];
 
-            const countQuery = `
+      const countQuery = `
                SELECT COUNT(*) AS total
                     FROM productos p
                     LEFT JOIN inventario i ON p.idproducto = i.idproducto
@@ -992,7 +1115,7 @@ export class ReportsService {
                         OR p.barcode LIKE ?
                         ) `;
 
-            const summaryQuery = `
+      const summaryQuery = `
                     SELECT
                         SUM(i.cantidad) AS inventoryStock,
                         SUM(p.ultcosto * i.cantidad) AS averageInventoryCost,
@@ -1031,37 +1154,32 @@ export class ReportsService {
                     GROUP BY (CASE WHEN ? = 0 THEN 0 ELSE i.idalmacen END);
                         `;
 
-            const [rows, countRows, summaryRows]: any = await Promise.all([
-                connection.query(query, params),
-                connection.query(countQuery, countParams),
-                connection.query(summaryQuery, summaryParams)
-            ]);
-            return {
-                data: [rows[0], countRows[0][0].total, summaryRows[0][0]],
-                error: false,
-            };
-        } catch (error: any) {
-            return { error: true, data: error.message };
-
-        } finally {
-            if (connection) this.db.release(connection);
-        }
-
+      const [rows, countRows, summaryRows]: any = await Promise.all([
+        connection.query(query, params),
+        connection.query(countQuery, countParams),
+        connection.query(summaryQuery, summaryParams),
+      ]);
+      return {
+        data: [rows[0], countRows[0][0].total, summaryRows[0][0]],
+        error: false,
+      };
+    } catch (error: any) {
+      return { error: true, data: error.message };
+    } finally {
+      if (connection) this.db.release(connection);
     }
+  }
 
-    public async dashboard(range: TRange): Promise<TServiceResponse> {
-        const connection = await this.db.getConnection();
-        try {
-
-            const { summary_range, weekly_range } = range
-            const { init: summary_init, end: summary_end } = summary_range
-            const { from: weekly_from, to: weekly_to } = weekly_range
-            const cumulativeSalesParams = [
-                weekly_from, weekly_to
-            ];
-            const salesDayParam = [summary_init];
-            const payableParam = [weekly_from, weekly_to];
-            const salesDayQuery = ` 
+  public async dashboard(range: TRange): Promise<TServiceResponse> {
+    const connection = await this.db.getConnection();
+    try {
+      const { summary_range, weekly_range } = range;
+      const { init: summary_init, end: summary_end } = summary_range;
+      const { from: weekly_from, to: weekly_to } = weekly_range;
+      const cumulativeSalesParams = [weekly_from, weekly_to];
+      const salesDayParam = [summary_init];
+      const payableParam = [weekly_from, weekly_to];
+      const salesDayQuery = ` 
                         SELECT
                             f.fecha,
                             f.idalmacen,
@@ -1094,7 +1212,7 @@ export class ReportsService {
                             f.idalmacen ASC
                     `;
 
-            const payableQuery = `
+      const payableQuery = `
                     SELECT
                         COALESCE(SUM(total_pagado),0) AS totalPayed,
                         COALESCE(SUM(saldo_pendiente),0) AS pendingPaid
@@ -1114,7 +1232,7 @@ export class ReportsService {
                     ) x;
             `;
 
-            const receivablePortfolioQuery = `
+      const receivablePortfolioQuery = `
                 SELECT
                     COALESCE(SUM(total_pagado),0) AS totalPayed,
                     COALESCE(SUM(saldo_pendiente),0) AS pendingPaid
@@ -1134,78 +1252,77 @@ export class ReportsService {
                 ) x;
             `;
 
-            const cumulativeSalesQuery = `
-                    SELECT 
-                        f.fecha AS date,
-                        COALESCE(SUM(f.subtot),0) AS subtotal,
-                        COALESCE(SUM(f.total),0) AS totalSales,
-                        COALESCE(SUM(f.prodvendid),0) AS totalProducts,
-                        COALESCE(SUM(f.cantfact),0) AS invoiceQuantity,
-                        COALESCE(SUM(f.ivaimp),0) AS totalTaxes,
-                        COALESCE(SUM(f.costoacum),0) AS totalCosts,
-                        COALESCE(SUM(f.valordev),0) AS returns,
-                        COALESCE(SUM(f.total - f.valordev),0) AS salesMinusReturns
-                    FROM (
-                        SELECT
-                            f.fecha,
-                            f.idalmacen,
-                            SUM(f.valortotal) AS total,
-                            COUNT(DISTINCT f.idfactura) AS cantfact,
-                            SUM(f.valretenciones) AS retencion,
-                            SUM(f.valimpuesto) AS ivaimp,
-                            SUM(f.subtotal) AS subtot,
-                            SUM(f.valdescuentos) AS sumdesc,
-                            SUM(f.otrosimpuestos) AS otrosimpuestos,
-                            SUM(f.impuestoinc) AS impuestoinc,
-                            IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS valpropina,
-                            IFNULL((SELECT SUM(dv.valordev) FROM devventas dv INNER JOIN facturas f2 ON dv.idfactura = f2.idfactura WHERE f2.fecha = f.fecha AND f2.idalmacen = f.idalmacen AND f2.estado = 0), 0) AS valordev,
-                            IFNULL((SELECT SUM(df.cantidad) FROM detfacturas df WHERE df.idfactura IN (SELECT idfactura FROM facturas WHERE fecha = f.fecha AND idalmacen = f.idalmacen AND estado = 0)), 0) AS prodvendid,
-                            IFNULL((SELECT SUM(p.ultcosto * df.cantidad) FROM detfacturas df INNER JOIN productos p ON df.idproducto = p.idproducto WHERE df.idfactura IN (SELECT idfactura FROM facturas WHERE fecha = f.fecha AND idalmacen = f.idalmacen AND estado = 0)), 0) AS costoacum,
-                            SUM(f.valortotal) + IFNULL((SELECT SUM(o.propina) FROM ordenes o WHERE o.idfactura = f.idfactura), 0) AS totalconprop,
-                            alm.nomalmacen
-                        FROM facturas f
-                        INNER JOIN almacenes alm
-                            ON f.idalmacen = alm.idalmacen
-                            AND alm.idempresa = 1
-                        WHERE
-                            f.fecha BETWEEN ? AND ?
-                            AND f.estado = 0
-                            AND (0 = 0 OR f.idalmacen IN (0))
-                        GROUP BY
-                            f.fecha,
-                            f.idalmacen,
-                            alm.nomalmacen
-                    ) f
-                    GROUP BY f.fecha
-                    ORDER BY f.fecha ASC
-            `;
-            const [salesDayRows, payableRows, receivablePortfolioRows, cumulativeSalesRows] = await Promise.all([
-                connection.query(salesDayQuery, salesDayParam),
-                connection.query(payableQuery, payableParam),
-                connection.query(receivablePortfolioQuery, payableParam),
-                connection.query(cumulativeSalesQuery, cumulativeSalesParams),
-            ])
-            return {
-                data: {
-                    salesDay: salesDayRows[0],
-                    payablePortfolio: payableRows[0],
-                    receivablePortfolio: receivablePortfolioRows[0],
-                    cumulativeSales: cumulativeSalesRows[0],
-                },
-                error: false,
-            };
-        } catch (error: any) {
-            return { error: true, data: error.message };
+      const cumulativeSalesQuery = `
+    SELECT
+        f.fecha AS date,
+        COALESCE(SUM(f.subtotal),0) AS subtotal,
+        COALESCE(SUM(f.valortotal),0) AS totalSales,
+        COALESCE(SUM(IFNULL(df.prodvendid,0)),0) AS totalProducts,
+        COUNT(DISTINCT f.idfactura) AS invoiceQuantity,
+        COALESCE(SUM(f.valimpuesto),0) AS totalTaxes,
+        COALESCE(SUM(IFNULL(df.costoacum,0)),0) AS totalCosts,
+        COALESCE(SUM(IFNULL(dv.valordev,0)),0) AS returns,
+        COALESCE(
+            SUM(f.valortotal) - SUM(IFNULL(dv.valordev,0)),
+            0
+        ) AS salesMinusReturns
+    FROM facturas f
 
-        } finally {
-            if (connection) this.db.release(connection);
-        }
+    LEFT JOIN (
+        SELECT
+            df.idfactura,
+            SUM(df.cantidad) AS prodvendid,
+            SUM(df.cantidad * p.ultcosto) AS costoacum
+        FROM detfacturas df
+        INNER JOIN productos p
+            ON p.idproducto = df.idproducto
+        GROUP BY df.idfactura
+    ) df
+        ON df.idfactura = f.idfactura
+
+    LEFT JOIN (
+        SELECT
+            idfactura,
+            SUM(valordev) AS valordev
+        FROM devventas
+        GROUP BY idfactura
+    ) dv
+        ON dv.idfactura = f.idfactura
+
+    WHERE
+        f.fecha BETWEEN ? AND ?
+        AND f.estado = 0
+
+    GROUP BY
+        f.fecha
+
+    ORDER BY
+        f.fecha ASC
+`;
+      const [
+        salesDayRows,
+        payableRows,
+        receivablePortfolioRows,
+        cumulativeSalesRows,
+      ] = await Promise.all([
+        connection.query(salesDayQuery, salesDayParam),
+        connection.query(payableQuery, payableParam),
+        connection.query(receivablePortfolioQuery, payableParam),
+        connection.query(cumulativeSalesQuery, cumulativeSalesParams),
+      ]);
+      return {
+        data: {
+          salesDay: salesDayRows[0],
+          payablePortfolio: payableRows[0],
+          receivablePortfolio: receivablePortfolioRows[0],
+          cumulativeSales: cumulativeSalesRows[0],
+        },
+        error: false,
+      };
+    } catch (error: any) {
+      return { error: true, data: error.message };
+    } finally {
+      if (connection) this.db.release(connection);
     }
-
+  }
 }
-
-
-
-
-
-
