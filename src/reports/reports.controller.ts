@@ -252,9 +252,7 @@ export class ReportsController {
             page,
             search
         );
-        console.log(data, status);
         const httpStatus = getHttpStatusReports('inventory', status || 1);
-        console.log(httpStatus);
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }
 
