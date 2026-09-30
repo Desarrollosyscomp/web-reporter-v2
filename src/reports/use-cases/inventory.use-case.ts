@@ -27,7 +27,7 @@ export class InventoryUseCase {
         const { data, error } = await this.reportsService.inventory(warehouse_id, limit, page, search);
         const summary = this.parseSummary(data[2], warehouse_id);
         const status = this.defineStatus(error || false);
-        return new UseCaseResponse<TDetailInventory>({
+        const res = new UseCaseResponse<TDetailInventory>({
             data: {
                 list: data[0],
                 count: data[1],
@@ -37,13 +37,26 @@ export class InventoryUseCase {
             status,
             limit
         }).getResponse();
+        console.log("d");
+        return res;
     }
     private defineStatus(error: boolean): number {
         return error ? 0 : 1;
     }
 
     private parseSummary(summary: any, warehouse_id: number): TSummary {
-
+        if (!summary) {
+            return {
+                warehouseName: warehouse_id === 0 ? 'TODOS LOS ALMACENES' : "",
+                inventoryStock: 0,
+                averageInventoryCost: 0,
+                inventoryCost: 0,
+                inventoryPrice: 0,
+                profit: 0,
+                totalPurchasesIva: 0,
+                totalSalesIva: 0,
+            };
+        }
         return {
             warehouseName: warehouse_id === 0
                 ? 'TODOS LOS ALMACENES'

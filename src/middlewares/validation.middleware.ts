@@ -14,15 +14,10 @@ export class ValidationMiddleware implements NestMiddleware {
     public async use(@Req() req: RequestWithTenant, res: Response, next: NextFunction) {
         const authHeader = req.headers.authorization;
         if (!authHeader)
-            return res.status(HttpStatus.UNAUTHORIZED).send(
-                new HttpException(
-                    {
-                        error: 'Bearer token not found',
-                        test: req.headers,
-                    },
-                    HttpStatus.UNAUTHORIZED,
-                ),
-            );
+            return res.status(HttpStatus.UNAUTHORIZED).send({
+                statusCode: HttpStatus.UNAUTHORIZED,
+                message: 'Bearer token not found',
+            });
         const [, token] = authHeader.split(' ');
         try {
             const payload: any = this.jwtService.verify(token, {
@@ -40,12 +35,11 @@ export class ValidationMiddleware implements NestMiddleware {
                 password: tenantInfo.password,
             };
             next();
-        } catch (error) {
-            throw new HttpException(
-                'Invalid or expired token',
-                HttpStatus.UNAUTHORIZED,
-            );
+        } catch {
+            return res.status(HttpStatus.UNAUTHORIZED).send({
+                statusCode: HttpStatus.UNAUTHORIZED,
+                message: 'Invalid token or inactive license',
+            });
         }
     }
 }
-

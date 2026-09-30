@@ -522,22 +522,22 @@ FROM (
       // ============================================
       const correctedSummary = {
         ...currentSummary,
-
+        
         // Cantidad total de productos vendidos
         totalProducts: Number(summaryData.totalProducts || 0),
-
+        
         // Costo acumulado de los productos vendidos
         totalCost: Number(summaryData.totalCost || 0),
-
+        
         // Ventas menos devoluciones
         salesMinusReturns:
-          Number(currentSummary.totalSales || 0) -
-          Number(currentSummary.returns || 0),
-
+        Number(currentSummary.totalSales || 0) -
+        Number(currentSummary.returns || 0),
+        
         // Utilidad
         profit:
-          Number(currentSummary.totalSales || 0) -
-          Number(summaryData.totalCost || 0),
+        Number(currentSummary.totalSales || 0) -
+        Number(summaryData.totalCost || 0),
       };
 
       // Aplicar corrección de desbordamiento a registros individuales
@@ -1153,12 +1153,16 @@ FROM (
                         )
                     GROUP BY (CASE WHEN ? = 0 THEN 0 ELSE i.idalmacen END);
                         `;
-
       const [rows, countRows, summaryRows]: any = await Promise.all([
         connection.query(query, params),
         connection.query(countQuery, countParams),
         connection.query(summaryQuery, summaryParams),
       ]);
+    //   console.log({
+    //     rows: rows[0].length,
+    //     count: countRows[0][0],
+    //     summary: summaryRows[0],
+    // });
       return {
         data: [rows[0], countRows[0][0].total, summaryRows[0][0]],
         error: false,

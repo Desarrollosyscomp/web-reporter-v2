@@ -89,7 +89,6 @@ export class DashboardUseCase {
     }
     private parseDate(): TRange {
         const today = getColombiaNow();
-        console.log(today)
         const todayStr = getColombiaDateString();
         const sevenDaysAgo = new Date(today);
         sevenDaysAgo.setDate(today.getDate() - 7);
