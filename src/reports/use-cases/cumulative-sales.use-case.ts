@@ -1,7 +1,9 @@
+// ==================== IMPORTACIONES ====================
 import { TUseCaseResponse } from "../../local-responses/response-types/use-case-response.type";
 import { ReportsService } from "../reports.service";
 import { UseCaseResponse } from "../../local-responses/classes/use-case-response";
 
+// ==================== TIPOS ====================
 type TSummary = {
     subtotal: number;
     totalSales: number;
@@ -21,9 +23,12 @@ type TCumilativeSalesRawData = {
     summary: TSummary;
 };
 
+// ==================== CASO DE USO: CumulativeSalesUseCase ====================
 export class CumulativeSalesUseCase {
+    // -------------------- Constructor / inyección de dependencias --------------------
     public constructor(private readonly reportsService: ReportsService) { }
 
+    // -------------------- Orquestación del caso de uso --------------------
     public async main(init_date: string, end_date: string, page: number, limit: number, warehouse_id: number): Promise<TUseCaseResponse> {
         const { data, error } = await this.reportsService.getCumulativeSales(init_date, end_date, page, limit, warehouse_id);
 
@@ -42,10 +47,12 @@ export class CumulativeSalesUseCase {
             limit,
         }).getResponse();
     }
+    // -------------------- Estado lógico (1 = éxito / 0 = error) --------------------
     private defineStatus(error: boolean): number {
         return error ? 0 : 1;
     }
 
+    // -------------------- Transformación de la respuesta --------------------
     private parseResponse(summary: any, list: any[]): TSummary {
         let totalCost = Number(summary.totalCost || 0);
         let discounts = Number(summary.discounts || 0);

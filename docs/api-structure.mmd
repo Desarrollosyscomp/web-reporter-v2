@@ -1,0 +1,128 @@
+%% ==================== ESTRUCTURA DE LA API ====================
+%% Proyecto: web-reporter-v2 (web-reports-api)
+%% Muestra qué archivos participan en el funcionamiento de la API y cómo dependen entre sí, capa por capa:
+%% Arranque → Middleware → Controlador → Compositor → Validador / Caso de uso → Servicio → Adaptador → Base de datos
+
+flowchart TB
+
+    %% ==================== CAPA 1: ARRANQUE ====================
+    subgraph L1["1. Arranque"]
+        MAIN["main.ts<br/>NestFactory, CORS, Swagger /api/v1/docs,<br/>ValidationPipe global, LoggingInterceptor, puerto 3200"]
+        APPM["app.module.ts<br/>ConfigModule, CacheModule, JwtModule"]
+        LOGI["commons/logging.interceptor.ts"]
+    end
+
+    %% ==================== CAPA 2: SEGURIDAD Y TENANT ====================
+    subgraph L2["2. Seguridad y resolución del tenant"]
+        MID["middlewares/validation.middleware.ts<br/>todas las rutas excepto POST /login/auth"]
+        TSVC["admin/tenant-database.service.ts<br/>caché tenant_clientId"]
+        TYP["types/request-with-tenant.ts<br/>req.tenant y req.user"]
+        JWTS["login/jwt.strategy.ts<br/>login/jwt-auth.guards.ts<br/>(declarados, no usados en rutas)"]
+    end
+
+    %% ==================== CAPA 3: MÓDULOS Y CONTROLADORES ====================
+    subgraph L3["3. Módulos y controladores (HTTP)"]
+        LMOD["login.module.ts"] --> LCTRL["login.controller.ts<br/>POST /login/auth"]
+        RMOD["reports.module.ts"] --> RCTRL["reports.controller.ts<br/>GET /reports/*"]
+        WMOD["warehouses.module.ts"] --> WCTRL["warehouses.controller.ts<br/>GET /warehouses"]
+        AMOD["admin.module.ts"]
+    end
+
+    %% ==================== CAPA 4: ENTRADA (DTO) ====================
+    subgraph L4["4. Validación de entrada (DTO)"]
+        LDTO["login/dto/login.dto.ts"]
+        RDTO["reports/dto/*.dto.ts"]
+    end
+
+    %% ==================== CAPA 5: COMPOSICIÓN ====================
+    subgraph L5["5. Compositores (armado manual de dependencias)"]
+        LCOMP["login/compositors/use-case.compositors.ts"]
+        RCOMP["reports/compositors/use-case.compositors.ts"]
+        RVCOMP["reports/compositors/validator.compositor.ts"]
+        WCOMP["warehouses/compositors/use-case.compositor.ts"]
+    end
+
+    %% ==================== CAPA 6: REGLAS DE NEGOCIO ====================
+    subgraph L6["6. Validadores y casos de uso"]
+        RVAL["reports/validators/<br/>sales-day, invoice-detail, cash-counts"]
+        LUC["login/use-cases/login.use-case.ts<br/>bcrypt + firma JWT"]
+        RUC["reports/use-cases/*.use-case.ts<br/>transforman y resumen datos"]
+        WUC["warehouses/use-cases/find-all-warehouse.use-case.ts"]
+    end
+
+    %% ==================== CAPA 7: SERVICIOS (SQL) ====================
+    subgraph L7["7. Servicios"]
+        LSVC["login/login.service.ts"]
+        RSVC["reports/reports.service.ts"]
+        WSVC["warehouses/warehouses.service.ts"]
+    end
+
+    %% ==================== CAPA 8: ACCESO A DATOS ====================
+    subgraph L8["8. Acceso a datos"]
+        DIF["database/database.interface.ts"]
+        MAD["database/mysql/mysql.adapter.ts"]
+        MCON["database/mysql/mysql.connection.ts<br/>pools por host_base_usuario"]
+        DCFG["database/config/database.config.ts<br/>DB_PORT, límite 20 conexiones"]
+        PGC["database/postgres/postgres.connection.ts"]
+        PGCFG["database/config/postgres.database.config.ts"]
+        PENT["postgres-entities/*.entity.ts"]
+    end
+
+    %% ==================== CAPA 9: BASES DE DATOS ====================
+    subgraph L9["9. Bases de datos"]
+        PGDB[("PostgreSQL<br/>clients<br/>conxpos_utilities_auth<br/>conxpos_utilities_databases")]
+        MYDB[("MySQL del cliente<br/>facturas, detfacturas, devventas,<br/>cartera, productos, almacenes, arqueo...")]
+    end
+
+    %% ==================== RESPUESTAS COMPARTIDAS ====================
+    subgraph LX["Respuestas compartidas"]
+        HRESP["local-responses/classes/http-response.ts"]
+        UCRESP["local-responses/classes/use-case-response.ts<br/>+ paginator-response.ts"]
+        VRESP["local-responses/classes/validation-response.ts"]
+        HSTAT["*/helpers/*.http-status.ts<br/>estado lógico → código HTTP"]
+    end
+
+    %% ==================== DEPENDENCIAS ====================
+    MAIN --> APPM
+    MAIN --> LOGI
+    APPM --> MID
+    APPM --> LMOD & RMOD & WMOD & AMOD
+    AMOD --> TSVC
+    MID --> TSVC
+    MID --> TYP
+    TSVC --> PGC
+    LMOD -.-> JWTS
+
+    LCTRL --> LDTO
+    RCTRL --> RDTO
+    LCTRL --> LCOMP
+    RCTRL --> RCOMP
+    RCTRL --> RVCOMP
+    WCTRL --> WCOMP
+
+    LCOMP --> LUC
+    RCOMP --> RUC
+    RVCOMP --> RVAL
+    WCOMP --> WUC
+
+    LUC --> LSVC
+    RUC --> RSVC
+    WUC --> WSVC
+
+    LSVC --> PGC
+    RSVC --> DIF
+    WSVC --> DIF
+    RVAL --> DIF
+    DIF -.implementa.-> MAD
+    MAD --> MCON
+    MCON --> DCFG
+    PGC --> PGCFG
+    PGCFG --> PENT
+
+    PGC --> PGDB
+    MCON --> MYDB
+
+    LUC & RUC & WUC --> UCRESP
+    RVAL --> VRESP
+    LCTRL & RCTRL & WCTRL --> HRESP
+    LCTRL & RCTRL & WCTRL --> HSTAT

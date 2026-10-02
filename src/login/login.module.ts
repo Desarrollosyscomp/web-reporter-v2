@@ -1,3 +1,4 @@
+// ==================== IMPORTACIONES ====================
 import { Module } from '@nestjs/common';
 import { LoginService } from './login.service';
 import { LoginController } from './login.controller';
@@ -6,8 +7,10 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './jwt.strategy';
 
+// ==================== MÓDULO: LoginModule ====================
 @Module({
     imports: [
+    // -------------------- Passport y JWT --------------------
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -20,6 +23,7 @@ import { JwtStrategy } from './jwt.strategy';
       inject: [ConfigService],
     }),
   ],
+  // -------------------- Controladores y proveedores --------------------
   controllers: [LoginController],
   providers: [LoginService, JwtStrategy],
 })

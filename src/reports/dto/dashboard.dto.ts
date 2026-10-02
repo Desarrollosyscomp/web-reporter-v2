@@ -1,5 +1,7 @@
+// ==================== IMPORTACIONES ====================
 import { IsOptional, IsString } from "class-validator";
 import { getColombiaDateString } from "../../common/date-utils";
+// ==================== DTO: DashboardDto ====================
 export class DashboardDto {
 
     @IsOptional()

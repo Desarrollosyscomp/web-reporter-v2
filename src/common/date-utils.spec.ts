@@ -1,5 +1,7 @@
+// ==================== IMPORTACIONES ====================
 import { getColombiaNow, getColombiaDateString } from './date-utils';
 
+// ==================== PRUEBAS UNITARIAS ====================
 describe('date-utils (Colombia timezone UTC-5)', () => {
 
     it('8PM Colombia = 1AM UTC next day, debe dar fecha Colombia actual', () => {

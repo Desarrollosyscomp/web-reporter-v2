@@ -1,5 +1,7 @@
+// ==================== IMPORTACIONES ====================
 import { Request } from 'express';
 
+// ==================== TIPOS ====================
 export type TTenantMySQLConfig = {
     host: string;
     database: string;

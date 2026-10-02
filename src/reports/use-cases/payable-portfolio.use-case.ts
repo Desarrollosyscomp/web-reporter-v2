@@ -1,7 +1,9 @@
+// ==================== IMPORTACIONES ====================
 import { TUseCaseResponse } from "../../local-responses/response-types/use-case-response.type";
 import { ReportsService } from "../reports.service";
 import { UseCaseResponse } from "../../local-responses/classes/use-case-response";
 
+// ==================== TIPOS ====================
 type TPayablePortfolioRawData = {
     list: any[];
     count: number;
@@ -13,9 +15,12 @@ type TSummary = {
     totalPayed: number;
 }
 
+// ==================== CASO DE USO: PayablePortfolioUseCase ====================
 export class PayablePortfolioUseCase {
+    // -------------------- Constructor / inyección de dependencias --------------------
     public constructor(private readonly reportsService: ReportsService) { }
 
+    // -------------------- Orquestación del caso de uso --------------------
     public async main(init_date: string, end_date: string,
         page: number, limit: number, warehouse_id: number): Promise<TUseCaseResponse> {
         const { data, error } = await this.reportsService.payablePortfolio(init_date, end_date, page, limit, warehouse_id);
@@ -33,9 +38,11 @@ export class PayablePortfolioUseCase {
         }).getResponse();
     }
 
+    // -------------------- Estado lógico (1 = éxito / 0 = error) --------------------
     private defineStatus(error: boolean): number {
         return error ? 0 : 1;
     }
+    // -------------------- Transformación del resumen --------------------
     private parseSummary(summary:any): TSummary {
         return {
             pendingPaid: summary.pendingPaid,

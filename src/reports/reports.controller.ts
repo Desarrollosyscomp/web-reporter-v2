@@ -1,3 +1,4 @@
+// ==================== IMPORTACIONES ====================
 import { Controller, Get, Param, Res, HttpException, Query, ParseIntPipe, Req } from '@nestjs/common';
 import type { Response } from 'express';
 import { HttpResponse } from '../local-responses/classes/http-response';
@@ -25,11 +26,13 @@ import { GetReportDto } from './dto/get-report.dto';
 import { PaginateInventoryDto } from './dto/paginate-inventory.dto';
 import { DashboardDto } from './dto/dashboard.dto';
 
+// ==================== CONTROLADOR: ReportsController ====================
 @ApiTags('Reports')
 @ApiBearerAuth()
 @Controller('reports')
 export class ReportsController {
 
+    // -------------------- ENDPOINT GET /reports/sales-day — ventas del día por almacén --------------------
     @Get('sales-day')
     @ApiOperation({ summary: 'Trae el total de ventas de los almacenes según la fecha establecida' })
     @ApiQuery({
@@ -61,6 +64,7 @@ export class ReportsController {
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }
 
+    // -------------------- ENDPOINT GET /reports/sales-day/:date/:warehouse_id — detalle de ventas del día de un almacén --------------------
     @Get('sales-day/:date/:warehouse_id')
     @ApiOperation({ summary: "Listado de las ventas por almacén según la fecha establecida" })
     @ApiParam({ name: 'date', required: true, example: '20260108' })
@@ -78,6 +82,7 @@ export class ReportsController {
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }
 
+    // -------------------- ENDPOINT GET /reports/invoice-detail/:warehouse_id/:invoice_number — detalle de una factura --------------------
     @Get('invoice-detail/:warehouse_id/:invoice_number')
     @ApiOperation({ summary: "Detalle de la factura según el número y el almacén" })
     @ApiParam({ name: 'warehouse_id', required: true, example: 1, type: Number })
@@ -106,6 +111,7 @@ export class ReportsController {
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }
 
+    // -------------------- ENDPOINT GET /reports/cumulative-sales — ventas acumuladas por rango --------------------
     @Get('cumulative-sales')
     @ApiOperation({ summary: "Informe de ventas acumulado por fechas seleccionadas y almacenes" })
     @ApiQuery({
@@ -137,6 +143,7 @@ export class ReportsController {
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }
 
+    // -------------------- ENDPOINT GET /reports/cash-counts — arqueos de caja --------------------
     @Get('cash-counts')
     @ApiOperation({ summary: "Informe de arqueos de caja teniendo en cuenta pedidos y facturas" })
     @ApiQuery({
@@ -171,6 +178,7 @@ export class ReportsController {
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }
 
+    // -------------------- ENDPOINT GET /reports/receivable-portfolio — cartera por cobrar --------------------
     @Get('receivable-portfolio')
     @ApiOperation({ summary: "Informe de cuentas por cobrar de facturas y pedidos" })
     @ApiQuery({
@@ -201,6 +209,7 @@ export class ReportsController {
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }
 
+    // -------------------- ENDPOINT GET /reports/payable-portfolio — cartera por pagar --------------------
     @Get('payable-portfolio')
     @ApiOperation({ summary: "Informe de cuentas por pagar de compras" })
     @ApiQuery({
@@ -232,6 +241,7 @@ export class ReportsController {
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }
 
+    // -------------------- ENDPOINT GET /reports/inventory — inventario --------------------
     @Get('inventory')
     @ApiOperation({ summary: "Informe de inventario" })
     @ApiQuery({
@@ -256,6 +266,7 @@ export class ReportsController {
         return response.status(httpStatus).send(new HttpResponse(data, httpStatus));
     }
 
+    // -------------------- ENDPOINT GET /reports/dashboard/summary — resumen del dashboard --------------------
     @Get('dashboard/summary')
     @ApiOperation({ summary: 'Resumen general del día y últimos 7 días ' })
     @ApiQuery({

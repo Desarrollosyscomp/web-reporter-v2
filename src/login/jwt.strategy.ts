@@ -1,10 +1,13 @@
+// ==================== IMPORTACIONES ====================
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 
+// ==================== ESTRATEGIA PASSPORT: JwtStrategy ====================
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
+  // -------------------- Constructor / inyección de dependencias --------------------
   public constructor(private configService: ConfigService) {
     const secret = configService.get<string>('JWT_SECRET');
 
@@ -19,6 +22,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
+  // -------------------- Validación principal --------------------
   async validate(payload: any) {
     return payload;
   }

@@ -1,10 +1,14 @@
+// ==================== IMPORTACIONES ====================
 import { DatabaseConnection } from "../../database/database.interface";
 import { ValidationResponse } from "../../local-responses/classes/validation-response";
 import { ValidatorInterface } from "../../local-responses/interfaces/validator.interface";
 
+// ==================== VALIDADOR: CashCountsValidator ====================
 export class CashCountsValidator implements ValidatorInterface {
+    // -------------------- Constructor / inyección de dependencias --------------------
     public constructor(private readonly db: DatabaseConnection) { }
 
+    // -------------------- Validación principal --------------------
     public async validate(date: string, warehouse_id: number): Promise<ValidationResponse> {
         const checkData = await this.existData(date, warehouse_id);
         if (!checkData.success) {
@@ -16,10 +20,12 @@ export class CashCountsValidator implements ValidatorInterface {
         });
     }
 
+    // -------------------- Verificar existencia de arqueos --------------------
     private async existData(date: string, warehouse_id: number): Promise<ValidationResponse> {
         const connection = await this.db.getConnection();
         try {
             const _date = date.split(' ')[0];
+            // Consulta SQL: listado principal
             const query = `
             SELECT 1
             FROM arqueo a
@@ -27,6 +33,7 @@ export class CashCountsValidator implements ValidatorInterface {
             AND DATE(a.fechaap) = ?
             LIMIT 1;
            `;
+            // Parámetros de consulta
             const params = [warehouse_id, _date]
             const [rows] = await connection.query(query, params)
             if (!rows || rows.length === 0) {

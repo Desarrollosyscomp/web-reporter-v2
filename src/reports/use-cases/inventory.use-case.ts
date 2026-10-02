@@ -1,7 +1,9 @@
+// ==================== IMPORTACIONES ====================
 import { UseCaseResponse } from "../../local-responses/classes/use-case-response";
 import { TUseCaseResponse } from "../../local-responses/response-types/use-case-response.type";
 import { ReportsService } from "../reports.service";
 
+// ==================== TIPOS ====================
 type TSummary = {
     warehouseName: string;
     inventoryStock: number;
@@ -19,9 +21,12 @@ type TDetailInventory = {
     summary: TSummary;
 };
 
+// ==================== CASO DE USO: InventoryUseCase ====================
 export class InventoryUseCase {
+    // -------------------- Constructor / inyección de dependencias --------------------
     public constructor(private readonly reportsService: ReportsService) { }
 
+    // -------------------- Orquestación del caso de uso --------------------
     public async main(warehouse_id: number, limit: number,
         page: number, search?: string): Promise<TUseCaseResponse> {
         const { data, error } = await this.reportsService.inventory(warehouse_id, limit, page, search);
@@ -40,10 +45,12 @@ export class InventoryUseCase {
         console.log("d");
         return res;
     }
+    // -------------------- Estado lógico (1 = éxito / 0 = error) --------------------
     private defineStatus(error: boolean): number {
         return error ? 0 : 1;
     }
 
+    // -------------------- Transformación del resumen --------------------
     private parseSummary(summary: any, warehouse_id: number): TSummary {
         if (!summary) {
             return {

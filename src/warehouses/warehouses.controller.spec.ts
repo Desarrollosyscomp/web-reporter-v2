@@ -1,7 +1,9 @@
+// ==================== IMPORTACIONES ====================
 import { Test, TestingModule } from '@nestjs/testing';
 import { WarehousesController } from './warehouses.controller';
 import { WarehousesService } from './warehouses.service';
 
+// ==================== PRUEBAS UNITARIAS ====================
 describe('WarehousesController', () => {
   let controller: WarehousesController;
 

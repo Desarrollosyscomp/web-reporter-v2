@@ -1,5 +1,7 @@
+// ==================== IMPORTACIONES ====================
 import { config } from 'dotenv';
 config();
+// ==================== CONFIGURACIÓN MYSQL (valores por defecto del pool) ====================
 export const databaseConfig = {
     host: process.env.DB_HOST ?? 'localhost',
     port: Number(process.env.DB_PORT ?? 3306),

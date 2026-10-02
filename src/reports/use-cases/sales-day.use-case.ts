@@ -1,7 +1,9 @@
+// ==================== IMPORTACIONES ====================
 import { UseCaseResponse } from "../../local-responses/classes/use-case-response";
 import { TUseCaseResponse } from "../../local-responses/response-types/use-case-response.type";
 import { ReportsService } from "../reports.service";
 
+// ==================== TIPOS ====================
 type TSalesDaySummary = {
     totalSales: number;
     totalProducts: number;
@@ -25,9 +27,12 @@ type TSalesDaySummary = {
         discounts: number;
     }>;
 }
+// ==================== CASO DE USO: SalesDayUseCase ====================
 export class SalesDayUseCase {
+    // -------------------- Constructor / inyección de dependencias --------------------
     public constructor(private readonly reportsService: ReportsService) { }
 
+    // -------------------- Orquestación del caso de uso --------------------
     public async main(init_date: string): Promise<TUseCaseResponse> {
         const { data, error } = await this.reportsService.salesDay(init_date);
 
@@ -40,10 +45,12 @@ export class SalesDayUseCase {
         }).getResponse();
     }
 
+    // -------------------- Estado lógico (1 = éxito / 0 = error) --------------------
     private defineStatus(error: boolean): number {
         return error ? 0 : 1;
     }
 
+    // -------------------- Transformación de la respuesta --------------------
     private parseResponse(data: Array<any>): TSalesDaySummary {
         if (!data || !Array.isArray(data)) {
             return {

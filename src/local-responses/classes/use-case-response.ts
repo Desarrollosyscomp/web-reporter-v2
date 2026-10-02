@@ -1,8 +1,10 @@
+// ==================== IMPORTACIONES ====================
 import { TLocalResponse } from '../response-types/local-response.type';
 import { TRawPaginatedData } from '../response-types/raw-paginated-data';
 import { TUseCaseResponse } from '../response-types/use-case-response.type';
 import { PaginatorResponse } from './paginator-response';
 
+// ==================== TIPOS ====================
 type UseCaseParams = {
     data: any;
     error?: any;
@@ -10,11 +12,13 @@ type UseCaseParams = {
     limit?: number;
 }
 
+// ==================== CLASE DE RESPUESTA: UseCaseResponse ====================
 export class UseCaseResponse<T = any> implements TLocalResponse<T> {
     public data: T;
     public status: number;
     public error: boolean;
     public limit: number;
+    // -------------------- Constructor / inyección de dependencias --------------------
     public constructor(params: UseCaseParams) {
         this.setData(params.data);
         if (params.status != undefined) {
@@ -26,6 +30,7 @@ export class UseCaseResponse<T = any> implements TLocalResponse<T> {
             this.setLimit(params.limit);
         }
     }
+    // -------------------- Getters y setters --------------------
     public setLimit(limit: number): void {
         this.limit = limit;
     }
@@ -50,6 +55,7 @@ export class UseCaseResponse<T = any> implements TLocalResponse<T> {
     public getStatus(): number {
         return this.status;
     }
+    // -------------------- Construcción de la respuesta final --------------------
     public getResponse(): TUseCaseResponse {
         const error = this.getError();
         // if (error) {
@@ -62,6 +68,7 @@ export class UseCaseResponse<T = any> implements TLocalResponse<T> {
 
         return this.parsePaginatorResponse();
     }
+    // -------------------- Respuesta simple {status, data} --------------------
     public parseSimpleResponse(): TUseCaseResponse {
         let status = this.getStatus();
         const data = this.getData();
@@ -70,6 +77,7 @@ export class UseCaseResponse<T = any> implements TLocalResponse<T> {
             data,
         };
     }
+    // -------------------- Respuesta paginada {list, count, totalPages, summary} --------------------
     public parsePaginatorResponse(): TUseCaseResponse {
         const data = this.getData() as TRawPaginatedData;;
         const limit = this.getLimit();

@@ -1,5 +1,7 @@
+// ==================== IMPORTACIONES ====================
 import { HttpStatus } from "@nestjs/common";
 
+// ==================== MAPA DE ESTADOS LÓGICOS → HTTP (reportes) ====================
 const reportsStatusMap: Record<string, Record<number, number>> = {
     salesDay: {
         0: HttpStatus.CONFLICT,
@@ -39,6 +41,7 @@ const reportsStatusMap: Record<string, Record<number, number>> = {
     }
 }
 
+// ==================== RESOLVER CÓDIGO HTTP (reportes) ====================
 export const getHttpStatusReports = (controller: string, status: number): number => {
     return reportsStatusMap[controller][status] ?? 501;
 };

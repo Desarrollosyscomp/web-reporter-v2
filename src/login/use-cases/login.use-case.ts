@@ -1,11 +1,14 @@
+// ==================== IMPORTACIONES ====================
 import { JwtService } from "@nestjs/jwt";
 import { UseCaseResponse } from "../../local-responses/classes/use-case-response";
 import { TUseCaseResponse } from "../../local-responses/response-types/use-case-response.type";
 import { LoginService } from "../login.service";
 import * as bcrypt from 'bcrypt';
 
+// ==================== CASO DE USO: LoginUseCase ====================
 export class LoginUseCase {
     private readonly jwtService: JwtService;
+    // -------------------- Constructor / inyección de dependencias --------------------
     public constructor(private readonly loginService: LoginService) {
         this.jwtService = new JwtService({
             secret: process.env.JWT_SECRET,
@@ -15,7 +18,9 @@ export class LoginUseCase {
         })
     }
 
+    // -------------------- Orquestación del caso de uso --------------------
     public async main(username: string, password: string): Promise<TUseCaseResponse> {
+        // Búsqueda del usuario
         const { data, error, } = await this.loginService.login(username, password);
         if (!data.user) {
             return new UseCaseResponse({
@@ -24,6 +29,7 @@ export class LoginUseCase {
                 error: true,
             }).getResponse();
         }
+        // Validación de contraseña (bcrypt)
         const rightPassword = await bcrypt.compare(
             password,
             data.user.password,
@@ -36,6 +42,7 @@ export class LoginUseCase {
                 error: true,
             }).getResponse();
         }
+        // Generación del token JWT
         const date = new Date();
         date.setDate(date.getDate() + 3);
         const tokenObject = {

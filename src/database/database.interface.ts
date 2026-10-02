@@ -1,3 +1,4 @@
+// ==================== TIPOS ====================
 export interface DatabaseConnection {
     getConnection(): Promise<any>;
     query<T = any>(

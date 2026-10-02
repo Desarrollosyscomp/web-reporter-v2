@@ -1,5 +1,7 @@
+// ==================== IMPORTACIONES ====================
 import { HttpStatus } from "@nestjs/common";
 
+// ==================== MAPA DE ESTADOS LÓGICOS → HTTP (almacenes) ====================
 const warehousesStatusMap: Record<string, Record<number, number>> = {
 
     findAllWarehouses: {
@@ -8,6 +10,7 @@ const warehousesStatusMap: Record<string, Record<number, number>> = {
     },
 }
 
+// ==================== RESOLVER CÓDIGO HTTP (almacenes) ====================
 export const getHttpStatusWarehouses = (
     controller: string,
     status: number,

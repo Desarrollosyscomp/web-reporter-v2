@@ -1,3 +1,4 @@
+// ==================== IMPORTACIONES ====================
 import {
   TPaginatedServiceResponse,
   TServiceResponse,
@@ -5,13 +6,17 @@ import {
 import { DatabaseConnection } from '../database/database.interface';
 import { TRange } from './use-cases/dashboard.use-case';
 
+// ==================== SERVICIO: ReportsService ====================
 export class ReportsService {
+  // -------------------- Constructor / inyección de dependencias --------------------
   public constructor(private readonly db: DatabaseConnection) {}
 
+  // -------------------- Consulta: ventas del día agrupadas por almacén --------------------
   public async salesDay(init_date: string): Promise<TServiceResponse> {
     const connection = await this.db.getConnection();
 
     try {
+      // Consulta SQL: listado principal
       const query = `
         SELECT
     f.fecha,
@@ -86,6 +91,7 @@ ORDER BY
         rows.map(async (sale) => {
           if (sale.costoacum > sale.total * 10) {
             try {
+              // Consulta SQL: productos vendidos
               const productosQuery = `
                             SELECT COALESCE(SUM(df.cantidad), 0) AS total_productos
                             FROM facturas f
@@ -124,6 +130,7 @@ ORDER BY
     }
   }
 
+  // -------------------- Consulta: detalle de ventas del día por almacén (paginado) --------------------
   public async detailSalesDayByWarehouse(
     date: string,
     warehouse_id: number,
@@ -134,12 +141,14 @@ ORDER BY
     try {
       const offset = (page - 1) * limit;
 
+      // Consulta SQL: listado principal
       const query = `SELECT idfactura, numero, fecha, subtotal, valimpuesto, valortotal, valdescuentos, hora, almacenes.idalmacen, almacenes.nomalmacen,  estado
             FROM facturas
             LEFT JOIN almacenes ON (facturas.idalmacen = almacenes.idalmacen AND almacenes.idempresa = 1)
             WHERE fecha = ? AND almacenes.idalmacen = ? AND estado = 0
             LIMIT ? OFFSET ?
             `;
+      // Consulta SQL: resumen / totales
       const summaryQuery = `
             SELECT 
             COALESCE(SUM(f.subtotal),0) as subtotal,
@@ -156,6 +165,7 @@ ORDER BY
             WHERE f.fecha = ? AND f.idalmacen = ? AND f.estado = 0
             `;
 
+      // Consulta SQL: medios de pago
       const paymentMethodsQuery = `
             SELECT 
                 fp.idpago,
@@ -171,16 +181,19 @@ ORDER BY
             GROUP BY fp.idpago, fp.nompago
             ORDER BY fp.nompago
             `;
+      // Consulta SQL: conteo para paginación
       const countQuery = `
             SELECT COUNT(*) as total 
             FROM facturas f
             INNER JOIN almacenes alm ON f.idalmacen = alm.idalmacen AND alm.idempresa = 1
             WHERE f.fecha = ? AND f.idalmacen = ? AND f.estado = 0
             `;
+      // Parámetros de consulta
       const params = [date, warehouse_id, limit, offset];
       const countParams = [date, warehouse_id];
       const summaryParams = [date, warehouse_id];
 
+      // Ejecución paralela de consultas
       const [rows, count, summary, paymentMethods] = await Promise.all([
         connection.query(query, params),
         connection.execute(countQuery, countParams),
@@ -205,12 +218,14 @@ ORDER BY
     }
   }
 
+  // -------------------- Consulta: detalle de factura y medios de pago --------------------
   public async invoiceDetailByWarehouseAndNumber(
     warehouse_id: number,
     invoice_number: number,
   ): Promise<TServiceResponse> {
     const connection = await this.db.getConnection();
     try {
+      // Consulta SQL: listado principal
       const query = `
             SELECT f.numero, f.valimpuesto, f.subtotal, f.valdescuentos, f.valortotal, prod.descripcion, 
             df.valorprod, df.descuento, df.porcdesc, f.fecha, t.nombres, t.apellidos, df.cantidad,
@@ -222,6 +237,7 @@ ORDER BY
             WHERE f.idalmacen = ? AND  f.numero= ?
             `;
 
+      // Consulta SQL: medios de pago
       const paymentMethodsQuery = `
             SELECT 
                 fp.idpago,
@@ -237,6 +253,7 @@ ORDER BY
             ORDER BY fp.nompago
             `;
 
+      // Parámetros de consulta
       const params = [warehouse_id, invoice_number];
       const paymentMethodsParams = [invoice_number, warehouse_id];
       const [rows] = await connection.query(query, params);
@@ -254,12 +271,14 @@ ORDER BY
     }
   }
 
+    // -------------------- Getters y setters --------------------
     public async getCumulativeSales(init_date: string, end_date: string, page: number,
         limit: number, warehouse_id: number): Promise<TPaginatedServiceResponse> {
         const connection = await this.db.getConnection();
         try {
 
             const offset = (page - 1) * limit;
+            // Consulta SQL: listado principal
             const query = init_date === end_date ? `
         SELECT
             f.fecha,
@@ -328,6 +347,7 @@ ORDER BY
             f.idalmacen
         LIMIT ? OFFSET ?;
       `;
+      // Consulta SQL: conteo para paginación
       const countQuery = `
 SELECT COUNT(*) AS total
 FROM (
@@ -350,6 +370,7 @@ FROM (
 ) x;
             `;
             // Usar mismo summary query que sales-day cuando las fechas son iguales
+            // Consulta SQL: resumen / totales
             const summaryQuery = init_date === end_date ? `
                         SELECT
                             COALESCE(SUM(subtot),0) AS subtotal,
@@ -435,6 +456,7 @@ FROM (
                                 alm.nomalmacen
                         ) summary_data
             `;
+            // Parámetros de consulta
             const params = init_date === end_date ? [
                 init_date, warehouse_id, warehouse_id,
                 limit, offset
@@ -442,17 +464,20 @@ FROM (
                 init_date, end_date, warehouse_id, warehouse_id,
                 limit, offset
             ];
+            // Parámetros de consulta
             const countParams = [
                 init_date,
                 end_date,
                 warehouse_id,
                 warehouse_id
             ];
+            // Parámetros de consulta
             const totalParams = init_date === end_date ? [
                 init_date, warehouse_id, warehouse_id
             ] : [
                 init_date, end_date, warehouse_id, warehouse_id
             ];
+            // Ejecución paralela de consultas
             const [rows, count, summary] = await Promise.all([
                 connection.query(query, params),
                 connection.execute(countQuery, countParams),
@@ -474,6 +499,7 @@ FROM (
       // Consulta para calcular costo total y
       // cantidad total de productos vendidos
       // ============================================
+      // Consulta SQL: resumen de productos
       const summaryProductsQuery =
         init_date === end_date
           ? `
@@ -566,6 +592,7 @@ FROM (
     }
   }
 
+  // -------------------- Consulta: arqueos de caja --------------------
   public async cashCounts(
     date: string,
     warehouse_id: number,
@@ -574,6 +601,7 @@ FROM (
     try {
       const _date = date.split(' ')[0];
 
+      // Consulta SQL: listado principal
       const query = `
             SELECT
                 a.idarqueo,
@@ -661,6 +689,7 @@ FROM (
             AND DATE(a.fechaap) = ?
             ORDER BY a.fechaap;
             `;
+      // Parámetros de consulta
       const params = [warehouse_id, _date];
       const [rows]: any = await connection.query(query, params);
       return {
@@ -674,6 +703,7 @@ FROM (
     }
   }
 
+  // -------------------- Consulta: cartera por cobrar (paginado) --------------------
   public async receivablePortfolio(
     init_date: string,
     end_date: string,
@@ -684,6 +714,7 @@ FROM (
     const connection = await this.db.getConnection();
     try {
       const offset = (page - 1) * limit;
+      // Consulta SQL: listado principal
       const query = `
                 SELECT
                     c.idcartera,
@@ -718,8 +749,10 @@ FROM (
                 ORDER BY c.fechadoc ASC
                 LIMIT ? OFFSET ?;
             `;
+      // Parámetros de consulta
       const params = [warehouse_id, init_date, end_date, limit, offset];
       const countParams = [warehouse_id, init_date, end_date];
+      // Consulta SQL: conteo para paginación
       const countQuery = `
                 SELECT COUNT(*) AS total
             FROM (
@@ -738,6 +771,7 @@ FROM (
             ) AS total_rows;
             `;
 
+      // Consulta SQL: resumen / totales
       const summaryQuery = `
                 SELECT
                     COALESCE(SUM(total_pagado),0) AS totalPayed,
@@ -758,8 +792,10 @@ FROM (
                     HAVING saldo_pendiente > 0
                 ) x;
             `;
+      // Parámetros de consulta
       const summaryParams = [warehouse_id, init_date, end_date];
 
+      // Ejecución paralela de consultas
       const [rows, count, summary]: any = await Promise.all([
         connection.query(query, params),
         connection.query(countQuery, countParams),
@@ -779,6 +815,7 @@ FROM (
       if (currentSummary.totalCost > currentSummary.totalSales * 10) {
         try {
           // Calcular productos y costos correctos para el summary
+          // Consulta SQL: resumen de productos
           const summaryProductsQuery =
             init_date === end_date
               ? `
@@ -849,6 +886,7 @@ FROM (
     }
   }
 
+  // -------------------- Consulta: cartera por pagar (paginado) --------------------
   public async payablePortfolio(
     init_date: string,
     end_date: string,
@@ -859,6 +897,7 @@ FROM (
     const connection = await this.db.getConnection();
     try {
       const offset = (page - 1) * limit;
+      // Consulta SQL: listado principal
       const query = `
                  SELECT
                         c.idcartera,
@@ -893,8 +932,10 @@ FROM (
                     ORDER BY c.fechadoc ASC
                     LIMIT ? OFFSET ?;
                  `;
+      // Parámetros de consulta
       const params = [warehouse_id, init_date, end_date, limit, offset];
       const countParams = [warehouse_id, init_date, end_date];
+      // Consulta SQL: conteo para paginación
       const countQuery = `
                 SELECT COUNT(*) AS total
                     FROM (
@@ -913,6 +954,7 @@ FROM (
                     ) AS total_rows;
                     `;
 
+      // Consulta SQL: resumen / totales
       const summaryQuery = `
                     SELECT
                         COALESCE(SUM(total_pagado),0) AS totalPayed,
@@ -933,7 +975,9 @@ FROM (
                         HAVING saldo_pendiente > 0
                     ) x;
             `;
+      // Parámetros de consulta
       const summaryParams = [warehouse_id, init_date, end_date];
+      // Ejecución paralela de consultas
       const [rows, count, summary]: any = await Promise.all([
         connection.query(query, params),
         connection.query(countQuery, countParams),
@@ -953,6 +997,7 @@ FROM (
       if (currentSummary.totalCost > currentSummary.totalSales * 10) {
         try {
           // Calcular productos y costos correctos para el summary
+          // Consulta SQL: resumen de productos
           const summaryProductsQuery =
             init_date === end_date
               ? `
@@ -1023,6 +1068,7 @@ FROM (
     }
   }
 
+  // -------------------- Consulta: inventario por almacén con búsqueda (paginado) --------------------
   public async inventory(
     warehouse_id: number,
     limit: number,
@@ -1032,7 +1078,9 @@ FROM (
     const connection = await this.db.getConnection();
     try {
       const offset = (page - 1) * limit;
+      // Parámetros de consulta
       const searchParam = search ? `%${search}%` : null;
+      // Consulta SQL: listado principal
       const query = `
                           SELECT
                                 i.cantidad AS cantidad,
@@ -1070,6 +1118,7 @@ FROM (
                             ORDER BY p.codigo ASC, i.idalmacen ASC
                             LIMIT ? OFFSET ? `;
 
+      // Parámetros de consulta
       const params = [
         warehouse_id,
         warehouse_id,
@@ -1080,6 +1129,7 @@ FROM (
         limit,
         offset,
       ];
+      // Parámetros de consulta
       const countParams = [
         warehouse_id,
         warehouse_id,
@@ -1089,6 +1139,7 @@ FROM (
         searchParam,
       ];
 
+      // Parámetros de consulta
       const summaryParams = [
         warehouse_id,
         warehouse_id,
@@ -1100,6 +1151,7 @@ FROM (
         warehouse_id,
       ];
 
+      // Consulta SQL: conteo para paginación
       const countQuery = `
                SELECT COUNT(*) AS total
                     FROM productos p
@@ -1115,6 +1167,7 @@ FROM (
                         OR p.barcode LIKE ?
                         ) `;
 
+      // Consulta SQL: resumen / totales
       const summaryQuery = `
                     SELECT
                         SUM(i.cantidad) AS inventoryStock,
@@ -1153,6 +1206,7 @@ FROM (
                         )
                     GROUP BY (CASE WHEN ? = 0 THEN 0 ELSE i.idalmacen END);
                         `;
+      // Ejecución paralela de consultas
       const [rows, countRows, summaryRows]: any = await Promise.all([
         connection.query(query, params),
         connection.query(countQuery, countParams),
@@ -1174,15 +1228,18 @@ FROM (
     }
   }
 
+  // -------------------- Consulta: datos agregados del dashboard --------------------
   public async dashboard(range: TRange): Promise<TServiceResponse> {
     const connection = await this.db.getConnection();
     try {
       const { summary_range, weekly_range } = range;
       const { init: summary_init, end: summary_end } = summary_range;
       const { from: weekly_from, to: weekly_to } = weekly_range;
+      // Parámetros de consulta
       const cumulativeSalesParams = [weekly_from, weekly_to];
       const salesDayParam = [summary_init];
       const payableParam = [weekly_from, weekly_to];
+      // Consulta SQL: ventas del día
       const salesDayQuery = ` 
                         SELECT
                             f.fecha,
@@ -1216,6 +1273,7 @@ FROM (
                             f.idalmacen ASC
                     `;
 
+      // Consulta SQL: cartera por pagar
       const payableQuery = `
                     SELECT
                         COALESCE(SUM(total_pagado),0) AS totalPayed,
@@ -1236,6 +1294,7 @@ FROM (
                     ) x;
             `;
 
+      // Consulta SQL: cartera por cobrar
       const receivablePortfolioQuery = `
                 SELECT
                     COALESCE(SUM(total_pagado),0) AS totalPayed,
@@ -1256,6 +1315,7 @@ FROM (
                 ) x;
             `;
 
+      // Consulta SQL: ventas acumuladas semanales
       const cumulativeSalesQuery = `
     SELECT
         f.fecha AS date,

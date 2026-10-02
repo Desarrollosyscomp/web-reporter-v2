@@ -1,10 +1,14 @@
+// ==================== IMPORTACIONES ====================
 import { DatabaseConnection } from "../../database/database.interface";
 import { ValidationResponse } from "../../local-responses/classes/validation-response";
 import { ValidatorInterface } from "../../local-responses/interfaces/validator.interface";
 
+// ==================== VALIDADOR: InvoiceDetailValidator ====================
 export class InvoiceDetailValidator implements ValidatorInterface {
+    // -------------------- Constructor / inyección de dependencias --------------------
     public constructor(private readonly db: DatabaseConnection) { }
 
+    // -------------------- Validación principal --------------------
     public async validate(invoice_number: number, warehouse_id: number): Promise<ValidationResponse> {
         const _existInvoice = await this.existInvoice(invoice_number, warehouse_id);
         if (!_existInvoice.success) {
@@ -16,10 +20,12 @@ export class InvoiceDetailValidator implements ValidatorInterface {
         });
     }
 
+    // -------------------- Verificar existencia de la factura --------------------
     private async existInvoice(invoice_number: number, warehouse_id: number): Promise<ValidationResponse> {
         const connection = await this.db.getConnection();
 
         try {
+            // Consulta SQL: listado principal
             const query = `
         SELECT 1
         FROM facturas f

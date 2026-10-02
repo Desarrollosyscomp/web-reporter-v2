@@ -1,0 +1,124 @@
+%% ==================== ARQUITECTURA DE ARCHIVOS DEL PROYECTO ====================
+%% Proyecto: web-reporter-v2 (paquete web-reports-api)
+%% Stack: NestJS 11 + TypeScript | PostgreSQL (catálogo de clientes) | MySQL (datos de cada cliente)
+%% Muestra cómo se organizan carpetas y archivos del repositorio, agrupados por función.
+
+flowchart LR
+
+    %% ==================== RAÍZ DEL REPOSITORIO ====================
+    ROOT["web-reporter-v2/"]
+
+    subgraph CFG["Configuración y ejecución"]
+        direction TB
+        PKG["package.json<br/>scripts npm y dependencias"]
+        LOCK["package-lock.json"]
+        TSC["tsconfig.json<br/>tsconfig.build.json"]
+        NEST["nest-cli.json"]
+        LINT["eslint.config.mjs<br/>.prettierrc"]
+        ENV[".env (no versionado)<br/>API_PORT, JWT_*, POSTGRES_*, DB_PORT"]
+        GIT[".gitignore"]
+    end
+
+    subgraph DOCKER["Contenedores"]
+        direction TB
+        DF["Dockerfile<br/>build + node dist/main.js"]
+        DFD["Dockerfile.dev<br/>npm run start:dev"]
+    end
+
+    subgraph DOCS["Documentación"]
+        direction TB
+        README["README.md"]
+        SOL["SOLUTION_SUMMARY.md<br/>corrección de ventas"]
+        DARQ["docs/ARQUITECTURA.md"]
+        DAPI["docs/API.md"]
+        DOP["docs/OPERACION.md"]
+        DMMD["docs/*.mmd<br/>diagramas Mermaid"]
+    end
+
+    TEST["test/<br/>pruebas e2e"]
+    NM["node_modules/<br/>dependencias instaladas"]
+
+    ROOT --> CFG
+    ROOT --> DOCKER
+    ROOT --> DOCS
+    ROOT --> TEST
+    ROOT --> NM
+    ROOT --> SRC
+
+    %% ==================== CÓDIGO FUENTE (src/) ====================
+    SRC["src/"]
+
+    subgraph BOOT["Arranque"]
+        direction TB
+        MAIN["main.ts<br/>CORS, Swagger, ValidationPipe, puerto"]
+        APPM["app.module.ts<br/>Config, Cache, JWT, middleware global"]
+    end
+
+    subgraph AUTH["login/ — Autenticación"]
+        direction TB
+        LCTRL["login.controller.ts"]
+        LMOD["login.module.ts"]
+        LSVC["login.service.ts"]
+        LUC["use-cases/login.use-case.ts"]
+        LCOMP["compositors/use-case.compositors.ts"]
+        LDTO["dto/login.dto.ts"]
+        LHELP["helpers/login.http-status.ts"]
+        LJWT["jwt.strategy.ts<br/>jwt-auth.guards.ts<br/>test.guards.ts"]
+        LENT["entities/login.entity.ts (vacía)"]
+    end
+
+    subgraph REP["reports/ — Informes"]
+        direction TB
+        RCTRL["reports.controller.ts<br/>9 endpoints"]
+        RMOD["reports.module.ts"]
+        RSVC["reports.service.ts<br/>consultas SQL"]
+        RUC["use-cases/<br/>sales-day, detail-sales-day-by-warehouse,<br/>invoice-detail, cumulative-sales,<br/>cash-counts, receivable-portfolio,<br/>payable-portfolio, inventory, dashboard"]
+        RVAL["validators/<br/>sales-day, invoice-detail, cash-counts"]
+        RCOMP["compositors/<br/>use-case.compositors.ts<br/>validator.compositor.ts"]
+        RDTO["dto/<br/>get-report, paginate-report,<br/>paginate-inventory, dashboard"]
+        RHELP["helpers/<br/>reports.http-status.ts<br/>reports-validator.http-status.ts"]
+        RENT["entities/report.entity.ts (vacía)"]
+    end
+
+    subgraph WH["warehouses/ — Almacenes"]
+        direction TB
+        WCTRL["warehouses.controller.ts"]
+        WMOD["warehouses.module.ts"]
+        WSVC["warehouses.service.ts"]
+        WUC["use-cases/find-all-warehouse.use-case.ts"]
+        WCOMP["compositors/use-case.compositor.ts"]
+        WHELP["helpers/warehouses.http-status.ts"]
+        WDTO["dto/ y entities/ (vacíos)"]
+    end
+
+    subgraph TEN["admin/ y middlewares/ — Multi-tenant"]
+        direction TB
+        AMOD["admin/admin.module.ts"]
+        TSVC["admin/tenant-database.service.ts<br/>resuelve credenciales MySQL"]
+        MID["middlewares/validation.middleware.ts<br/>JWT + tenant en la request"]
+        TYP["types/request-with-tenant.ts"]
+    end
+
+    subgraph DATA["database/ y postgres-entities/ — Acceso a datos"]
+        direction TB
+        DIF["database/database.interface.ts"]
+        DCFG["database/config/<br/>database.config.ts<br/>postgres.database.config.ts"]
+        MYSQL["database/mysql/<br/>mysql.adapter.ts<br/>mysql.connection.ts<br/>mysql.types.ts"]
+        PG["database/postgres/postgres.connection.ts"]
+        PENT["postgres-entities/<br/>client, conxpos-utility-auth,<br/>conxpos-utility-databases"]
+    end
+
+    subgraph SHARED["Utilidades compartidas"]
+        direction TB
+        LR["local-responses/<br/>classes, interfaces, response-types"]
+        LOGI["commons/logging.interceptor.ts"]
+        DATE["common/date-utils.ts<br/>zona horaria Colombia"]
+    end
+
+    SRC --> BOOT
+    SRC --> AUTH
+    SRC --> REP
+    SRC --> WH
+    SRC --> TEN
+    SRC --> DATA
+    SRC --> SHARED

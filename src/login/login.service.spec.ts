@@ -1,6 +1,8 @@
+// ==================== IMPORTACIONES ====================
 import { Test, TestingModule } from '@nestjs/testing';
 import { LoginService } from './login.service';
 
+// ==================== PRUEBAS UNITARIAS ====================
 describe('LoginService', () => {
   let service: LoginService;
 

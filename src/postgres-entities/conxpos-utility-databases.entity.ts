@@ -1,12 +1,15 @@
+// ==================== IMPORTACIONES ====================
 import {
     Column, Entity, JoinColumn, OneToOne,
     PrimaryGeneratedColumn, UpdateDateColumn
 } from "typeorm";
 import { Client } from "./client.entity";
 
+// ==================== ENTIDAD: ConxposUtilityDataBase ====================
 @Entity({ name: 'conxpos_utilities_databases', schema: 'public' })
 export class ConxposUtilityDataBase {
 
+    // -------------------- Columnas --------------------
     @PrimaryGeneratedColumn()
     id: number;
 
@@ -31,6 +34,7 @@ export class ConxposUtilityDataBase {
     @UpdateDateColumn()
     updated_at?: Date;
 
+    // -------------------- Relaciones --------------------
     @OneToOne(() => Client, (client) => client.conxposUtilityDataBase)
     @JoinColumn({ name: 'client_id', referencedColumnName: 'id' })
     client: Client;

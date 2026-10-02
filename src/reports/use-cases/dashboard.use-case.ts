@@ -1,8 +1,10 @@
+// ==================== IMPORTACIONES ====================
 import { UseCaseResponse } from "../../local-responses/classes/use-case-response";
 import { TUseCaseResponse } from "../../local-responses/response-types/use-case-response.type";
 import { ReportsService } from "../reports.service";
 import { getColombiaNow, getColombiaDateString } from "../../common/date-utils";
 
+// ==================== TIPOS ====================
 export type TRange = {
     summary_range: {
         init: string;
@@ -61,9 +63,12 @@ type TCumulativeSales = {
     salesMinusReturns: number;
 }
 
+// ==================== CASO DE USO: DashboardUseCase ====================
 export class DashboardUseCase {
+    // -------------------- Constructor / inyección de dependencias --------------------
     public constructor(private readonly reportsService: ReportsService) { }
 
+    // -------------------- Orquestación del caso de uso --------------------
     public async main(): Promise<TUseCaseResponse> {
         const range = this.parseDate();
         const { data, error } = await this.reportsService.dashboard(range);
@@ -84,9 +89,11 @@ export class DashboardUseCase {
         }).getResponse();
     }
 
+    // -------------------- Estado lógico (1 = éxito / 0 = error) --------------------
     private defineStatus(error: boolean): number {
         return error ? 0 : 1;
     }
+    // -------------------- Rangos de fechas (día actual y últimos 7 días) --------------------
     private parseDate(): TRange {
         const today = getColombiaNow();
         const todayStr = getColombiaDateString();
@@ -106,6 +113,7 @@ export class DashboardUseCase {
             }
         };
     }
+    // -------------------- Formato de fecha YYYYMMDD --------------------
     private formatToYYYYMMDD(date: Date): string {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -113,7 +121,9 @@ export class DashboardUseCase {
         return `${year}${month}${day}`;
     }
 
+    // -------------------- Ventas del día por almacén y totales --------------------
     private totalSales(data: any[]): TSalesDay {
+        // Corrección puntual de costos (fecha 20260417)
         const correctedData = data.map(element => {
             const shouldCorrect = element.fecha === "20260417" && (element.costoacum < 100 || element.costoacum > element.total * 10);
             if (shouldCorrect) {
@@ -184,6 +194,7 @@ export class DashboardUseCase {
         };
     }
 
+    // -------------------- Resumen de cartera por pagar --------------------
     private payablePortfolio(data: any[]): TPayaablePortfolio {
         return data.reduce<TPayaablePortfolio>((acc, item) => {
             acc.totalPayed = item.totalPayed;
@@ -192,6 +203,7 @@ export class DashboardUseCase {
         }, { totalPayed: 0, pendingPaid: 0 })
     }
 
+    // -------------------- Resumen de cartera por cobrar --------------------
     private receivablePortfolio(data: any[]): TReceivablePortfolio {
         return data.reduce<TReceivablePortfolio>((acc, item) => {
             acc.totalPayed = item.totalPayed;
@@ -200,6 +212,7 @@ export class DashboardUseCase {
         }, { totalPayed: 0, pendingPaid: 0 })
     }
 
+    // -------------------- Transformación de ventas acumuladas semanales --------------------
     private parseCumulativeSales(data: Array<any>): TCumulativeSales[] {
         return data.reduce<TCumulativeSales[]>((acc, item) => {
             acc.push({

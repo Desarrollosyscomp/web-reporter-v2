@@ -1,5 +1,7 @@
+// ==================== IMPORTACIONES ====================
 import { HttpStatus } from "@nestjs/common";
 
+// ==================== MAPA DE ESTADOS DE VALIDACIÓN → HTTP (reportes) ====================
 const reportsValidatorHttpStatusMap: Record<string, Record<number, number>> = {
     validateSales: {
         0: HttpStatus.CONFLICT,
@@ -21,6 +23,7 @@ const reportsValidatorHttpStatusMap: Record<string, Record<number, number>> = {
     }
 }
 
+// ==================== RESOLVER CÓDIGO HTTP DE VALIDACIÓN ====================
 export const getValidationHttpStatus = (controller: string, status: number): number => {
     return reportsValidatorHttpStatusMap[controller][status] ?? 501;
 };

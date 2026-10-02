@@ -1,11 +1,15 @@
+// ==================== IMPORTACIONES ====================
 import { RequestWithTenant } from '../../types/request-with-tenant';
 import { DatabaseConnection } from '../database.interface';
 import { MySQLConnectionFactory } from './mysql.connection';
 import { PoolConnection } from 'mysql2/promise';
 
+// ==================== ADAPTADOR MYSQL: MySQLAdapter ====================
 export class MySQLAdapter implements DatabaseConnection {
+    // -------------------- Constructor / inyección de dependencias --------------------
     public constructor(private readonly request: RequestWithTenant) { }
 
+    // -------------------- Pool del tenant actual --------------------
     private get pool() {
         if (!this.request.tenant) {
             throw new Error('Base de datos no resuelta');
@@ -15,10 +19,12 @@ export class MySQLAdapter implements DatabaseConnection {
         return MySQLConnectionFactory.getPool(host, database, user, password);
     }
 
+    // -------------------- Obtener conexión del pool --------------------
     public async getConnection(): Promise<PoolConnection> {
         return this.pool.getConnection();
     }
 
+    // -------------------- Ejecutar consulta (query) --------------------
     public async query<T = any>(
         connection: PoolConnection,
         sql: string,
@@ -28,6 +34,7 @@ export class MySQLAdapter implements DatabaseConnection {
         return rows as T;
     }
 
+    // -------------------- Ejecutar sentencia preparada (execute) --------------------
     public async execute<T = any>(
         connection: PoolConnection,
         sql: string,
@@ -37,6 +44,7 @@ export class MySQLAdapter implements DatabaseConnection {
         return result as T;
     }
 
+    // -------------------- Liberar conexión al pool --------------------
     public release(connection: PoolConnection): void {
         connection.release();
     }

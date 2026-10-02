@@ -1,0 +1,106 @@
+%% ==================== FUNCIONAMIENTO DE LA API ====================
+%% Proyecto: web-reporter-v2 (web-reports-api)
+%% Explica paso a paso qué ocurre con una petición:
+%%   Fase A: inicio de sesión (POST /login/auth)
+%%   Fase B: petición autenticada a un informe (GET /reports/...)
+%% Ejemplo de la fase B: GET /reports/sales-day?init_date=YYYYMMDD
+
+sequenceDiagram
+    autonumber
+    actor C as Cliente (frontend / Swagger)
+    participant N as NestJS (main.ts)<br/>ValidationPipe + LoggingInterceptor
+    participant MW as ValidationMiddleware
+    participant TS as TenantDatabaseService
+    participant CA as Caché en memoria
+    participant CT as Controlador
+    participant CO as Compositor
+    participant VA as Validador
+    participant UC as Caso de uso
+    participant SV as Servicio
+    participant AD as MySQLAdapter / pools
+    participant PG as PostgreSQL (catálogo)
+    participant MY as MySQL (cliente)
+
+    %% ==================== FASE A: INICIO DE SESIÓN ====================
+    rect rgba(120, 160, 220, 0.12)
+    Note over C,MY: Fase A. Inicio de sesión. Esta ruta no pasa por el middleware.
+    C->>N: POST /login/auth {username, password}
+    N->>N: Valida LoginDto (campos no vacíos)
+    N->>CT: LoginController.login()
+    CT->>CO: loginUseCaseCompositor()
+    CO->>UC: new LoginUseCase(new LoginService())
+    UC->>SV: LoginService.login(username)
+    SV->>PG: SELECT en conxpos_utilities_auth WHERE username
+    PG-->>SV: usuario (client_id, password con hash)
+    SV-->>UC: {data: {user}}
+    alt usuario no existe o contraseña incorrecta (bcrypt.compare)
+        UC-->>CT: status 0, mensaje de error
+        CT-->>C: 409 CONFLICT
+    else credenciales válidas
+        UC->>UC: Firma JWT {tokenObject: {username, client_id, exp}}
+        UC-->>CT: status 1, {token}
+        CT-->>C: 200 OK {response: {token}, status, message, name}
+    end
+    end
+
+    %% ==================== FASE B: PETICIÓN AUTENTICADA ====================
+    rect rgba(120, 200, 140, 0.12)
+    Note over C,MY: Fase B. Petición a un informe con Authorization: Bearer token
+    C->>N: GET /reports/sales-day?init_date=20261001
+    N->>MW: Aplica middleware (todas las rutas excepto el login)
+
+    %% -------------------- Autenticación --------------------
+    alt sin encabezado Authorization
+        MW-->>C: 401 Bearer token not found
+    end
+    MW->>MW: jwtService.verify(token, ignoreExpiration: true)
+
+    %% -------------------- Resolución del tenant --------------------
+    MW->>TS: getMysqlCredentials(client_id)
+    TS->>CA: get tenant_client_id
+    alt credenciales en caché
+        CA-->>TS: host, base, usuario, clave
+    else no están en caché
+        TS->>PG: conxpos_utilities_auth (status = 1)<br/>conxpos_utilities_databases (is_active = true)
+        PG-->>TS: database_ip, database_name, db_user, db_password
+        TS->>CA: set tenant_client_id
+    end
+    alt token inválido o tenant no encontrado
+        MW-->>C: 401 Invalid token or inactive license
+    end
+    MW->>CT: next() con req.tenant y req.user
+
+    %% -------------------- Validación previa (solo algunos endpoints) --------------------
+    Note over CT,VA: Solo sales-day, invoice-detail y cash-counts tienen validador
+    CT->>CO: salesDayValidatorCompositor(req)
+    CO->>VA: new SalesDayValidator(new MySQLAdapter(req))
+    VA->>AD: getConnection() del pool del tenant
+    AD->>MY: SELECT 1 FROM facturas WHERE fecha = ? LIMIT 1
+    MY-->>VA: filas
+    alt sin datos (status 4) o error (status 0)
+        VA-->>CT: ValidationResponse(false)
+        CT-->>C: 404 NOT FOUND / 409 CONFLICT
+    end
+
+    %% -------------------- Caso de uso y servicio --------------------
+    CT->>CO: salesDayUseCaseCompositor(req)
+    CO->>UC: new SalesDayUseCase(new ReportsService(new MySQLAdapter(req)))
+    UC->>SV: reportsService.salesDay(init_date)
+    SV->>AD: getConnection()
+    AD->>MY: Consultas SQL parametrizadas (Promise.all si hay varias)
+    MY-->>SV: filas crudas
+    SV->>AD: release(connection) en finally
+    SV-->>UC: {data, error}
+
+    %% -------------------- Transformación y respuesta --------------------
+    UC->>UC: Transforma datos, calcula resumen y paginación (UseCaseResponse)
+    UC-->>CT: {status: 1 o 0, data}
+    CT->>CT: getHttpStatusReports(): 1 → 200, 0 → 409
+    CT-->>C: HttpResponse {response, status, message, name}
+    N->>N: LoggingInterceptor registra método, URL y tiempo en ms
+    end
+
+    %% ==================== OBSERVACIONES ====================
+    Note over C,MY: El token no vence en la práctica: se ignora la expiración y exp va en milisegundos.
+    Note over C,MY: Varios endpoints usan "status || 1", así que un error (0) puede responder 200.
+    Note over C,MY: Si cambian las credenciales en PostgreSQL, la caché y los pools no se invalidan hasta reiniciar.

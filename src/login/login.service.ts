@@ -1,8 +1,11 @@
+// ==================== IMPORTACIONES ====================
 import { TServiceResponse } from '../local-responses/response-types/service-response.type';
 import { ConxposUtilityAuth } from '../postgres-entities/conxpos-utility-auth.entity';
 import postgresDatasource from '../database/postgres/postgres.connection';
+// ==================== SERVICIO: LoginService ====================
 export class LoginService {
 
+  // -------------------- Búsqueda del usuario en PostgreSQL --------------------
   public async login(username: string, password: string): Promise<TServiceResponse> {
     const dataSource = await postgresDatasource();
     try {

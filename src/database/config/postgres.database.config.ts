@@ -1,9 +1,11 @@
+// ==================== IMPORTACIONES ====================
 import { config } from 'dotenv';
 import { Client } from '../../postgres-entities/client.entity';
 import { ConxposUtilityAuth } from '../../postgres-entities/conxpos-utility-auth.entity';
 import { ConxposUtilityDataBase } from '../../postgres-entities/conxpos-utility-databases.entity';
 config();
 
+// ==================== CONFIGURACIÓN POSTGRESQL (catálogo de clientes) ====================
 const postgresConnection = {
     type: process.env.POSTGRES_TYPE,
     host: process.env.POSTGRES_HOST,

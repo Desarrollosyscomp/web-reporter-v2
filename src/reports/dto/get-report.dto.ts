@@ -1,6 +1,8 @@
+// ==================== IMPORTACIONES ====================
 import { Type } from "class-transformer";
 import { IsNotEmpty, IsNumber, IsString } from "class-validator";
 
+// ==================== DTO: GetReportDto ====================
 export class GetReportDto {
 
     @IsString()

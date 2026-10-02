@@ -1,3 +1,4 @@
+// ==================== IMPORTACIONES ====================
 import { Injectable, Inject } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
@@ -6,17 +7,22 @@ import { ConxposUtilityAuth } from "../postgres-entities/conxpos-utility-auth.en
 import { ConxposUtilityDataBase } from "../postgres-entities/conxpos-utility-databases.entity";
 import type { Ttenant } from '../types/request-with-tenant';
 
+// ==================== SERVICIO: TenantDatabaseService ====================
 @Injectable()
 export class TenantDatabaseService {
+  // -------------------- Constructor / inyección de dependencias --------------------
   constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
 
+  // -------------------- Resolver credenciales MySQL del tenant (caché → PostgreSQL) --------------------
   public async getMysqlCredentials(clientId: number): Promise<Ttenant> {
+    // Consulta en caché
     const cacheKey = `tenant_${clientId}`;
     
     const cachedTenant = await this.cacheManager.get<Ttenant>(cacheKey);
     if (cachedTenant) {
       return cachedTenant;
     }
+    // Consulta en PostgreSQL
     const ds = await postgresDatasource();
     const authRepo = ds.getRepository(ConxposUtilityAuth);
     const dbRepo = ds.getRepository(ConxposUtilityDataBase);
@@ -33,6 +39,7 @@ export class TenantDatabaseService {
       throw new Error('Configuración de base de datos no encontrada');
     }
 
+    // Armado y cacheo de la configuración
     const tenantConfig: Ttenant = {
       database: db.database_name,
       ip: auth.database_ip,

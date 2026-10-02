@@ -1,6 +1,8 @@
+// ==================== IMPORTACIONES ====================
 import { DataSource } from 'typeorm';
 import { postgresConnection } from '../config/postgres.database.config';
 
+// ==================== FÁBRICA DE DATASOURCE POSTGRESQL ====================
 const postgresDatasource = async (): Promise<DataSource> => {
     const dataSource = new DataSource({
         type: postgresConnection.type as any,

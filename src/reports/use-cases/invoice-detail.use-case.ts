@@ -1,7 +1,9 @@
+// ==================== IMPORTACIONES ====================
 import { UseCaseResponse } from "../../local-responses/classes/use-case-response";
 import { TUseCaseResponse } from "../../local-responses/response-types/use-case-response.type";
 import { ReportsService } from "../reports.service";
 
+// ==================== TIPOS ====================
 type TSummary = {
     subtotal: number;
     valueAddedTax: number;
@@ -26,9 +28,12 @@ type TPaymentMethod = {
 }
 
 
+// ==================== CASO DE USO: InvoiceDetailUseCase ====================
 export class InvoiceDetailUseCase {
+    // -------------------- Constructor / inyección de dependencias --------------------
     public constructor(private readonly reportsService: ReportsService) { }
 
+    // -------------------- Orquestación del caso de uso --------------------
     public async main(warehouse_id: number, invoice_number: number): Promise<TUseCaseResponse> {
         const { data, error } = await this.reportsService.invoiceDetailByWarehouseAndNumber(warehouse_id, invoice_number);
         const summary = this.getSummary(data.invoice, data.paymentMethods);
@@ -43,10 +48,12 @@ export class InvoiceDetailUseCase {
         }).getResponse();
     }
 
+    // -------------------- Estado lógico (1 = éxito / 0 = error) --------------------
     private defineStatus(error: boolean): number {
         return error ? 0 : 1;
     }
 
+    // -------------------- Cálculo del resumen de la factura --------------------
     private getSummary(list: Array<any>, paymentMethods: Array<any>): TSummary {
         
         const totalCosto = list.reduce((sum, item) => sum + Number(item.total_costo || 0), 0);

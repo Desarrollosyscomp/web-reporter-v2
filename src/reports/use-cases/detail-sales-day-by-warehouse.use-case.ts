@@ -1,8 +1,10 @@
+// ==================== IMPORTACIONES ====================
 import { TUseCaseResponse } from "../../local-responses/response-types/use-case-response.type";
 import { ReportsService } from "../reports.service";
 import { UseCaseResponse } from "../../local-responses/classes/use-case-response";
 
 
+// ==================== TIPOS ====================
 type TSummary = {
     subtotal: number;
     totalTaxes: number;
@@ -23,9 +25,12 @@ type TPaymentMethod = {
     payment_total: number;
 }
 
+// ==================== CASO DE USO: DetailSalesDayByWarehouseUseCase ====================
 export class DetailSalesDayByWarehouseUseCase {
+    // -------------------- Constructor / inyección de dependencias --------------------
     public constructor(private readonly reportsService: ReportsService) { }
 
+    // -------------------- Orquestación del caso de uso --------------------
     public async main(date: string, warehouse_id: number, page: number, limit: number): Promise<TUseCaseResponse> {
         const { data, error } = await this.reportsService.detailSalesDayByWarehouse(date, warehouse_id, page, limit);
         const summary = this.addValues(data[2]);
@@ -42,10 +47,12 @@ export class DetailSalesDayByWarehouseUseCase {
             limit,
         }).getResponse();
     }
+    // -------------------- Estado lógico (1 = éxito / 0 = error) --------------------
     private defineStatus(error: boolean): number {
         return error ? 0 : 1;
     }
 
+    // -------------------- Ajuste del listado (total + descuentos) --------------------
     private transformList(list: any[]): any[] {
         if (!list || !Array.isArray(list)) {
             return [];
@@ -57,6 +64,7 @@ export class DetailSalesDayByWarehouseUseCase {
         }));
     }
 
+    // -------------------- Construcción del resumen y medios de pago --------------------
     private addValues(summary: any): TSummary {
         const discounts = Number(summary.sumdesc || 0);
         let _summary: TSummary = {

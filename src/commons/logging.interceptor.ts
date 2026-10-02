@@ -1,3 +1,4 @@
+// ==================== IMPORTACIONES ====================
 import {
     Injectable,
     NestInterceptor,
@@ -7,8 +8,10 @@ import {
   } from '@nestjs/common';
   import { Observable, tap } from 'rxjs';
   
+  // ==================== INTERCEPTOR: LoggingInterceptor ====================
   @Injectable()
   export class LoggingInterceptor implements NestInterceptor {
+    // -------------------- Medición del tiempo de respuesta --------------------
     intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
       const now = Date.now();
       const request = context.switchToHttp().getRequest();

@@ -1,3 +1,4 @@
+// ==================== IMPORTACIONES ====================
 import {
   Entity, PrimaryGeneratedColumn, Column, OneToMany,
   OneToOne, UpdateDateColumn, JoinColumn, ManyToMany, JoinTable, ManyToOne
@@ -6,8 +7,10 @@ import { ConxposUtilityAuth } from './conxpos-utility-auth.entity';
 import { ConxposUtilityDataBase } from './conxpos-utility-databases.entity';
 
 
+// ==================== ENTIDAD: Client ====================
 @Entity({ name: 'clients', schema: 'public' })
 export class Client {
+  // -------------------- Columnas --------------------
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -35,6 +38,7 @@ export class Client {
   @UpdateDateColumn()
   updated_at?: Date;
 
+  // -------------------- Relaciones deshabilitadas --------------------
   //  @OneToMany(() => Tenant, (tenant) => tenant.client)
   // tenant: Tenant[];
 
@@ -70,6 +74,7 @@ export class Client {
   // @OneToMany(() => License, (license) => license.client)
   // licenses: License[];
 
+  // -------------------- Relaciones activas --------------------
   @OneToOne(() => ConxposUtilityAuth, (conxposUtilityAuth) => conxposUtilityAuth.client)
   conxposUtilityAuth: ConxposUtilityAuth;
 

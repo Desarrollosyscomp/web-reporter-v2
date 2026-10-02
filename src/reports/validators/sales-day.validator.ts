@@ -1,9 +1,13 @@
+// ==================== IMPORTACIONES ====================
 import { DatabaseConnection } from "../../database/database.interface";
 import { ValidatorInterface } from "../../local-responses/interfaces/validator.interface";
 import { ValidationResponse } from "../../local-responses/classes/validation-response";
 
+// ==================== VALIDADOR: SalesDayValidator ====================
 export class SalesDayValidator implements ValidatorInterface {
+    // -------------------- Constructor / inyección de dependencias --------------------
     public constructor(private readonly db: DatabaseConnection) { }
+    // -------------------- Validación principal --------------------
     public async validate(init_date: string): Promise<ValidationResponse> {
 
         const salesCheck = await this.existsSales(init_date);
@@ -16,9 +20,11 @@ export class SalesDayValidator implements ValidatorInterface {
         });
 
     }
+    // -------------------- Verificar existencia de ventas en la fecha --------------------
     private async existsSales(init_date: string): Promise<ValidationResponse> {
         const connection = await this.db.getConnection();
         try {
+            // Consulta SQL: listado principal
             const query = `
         SELECT 1
         FROM facturas f

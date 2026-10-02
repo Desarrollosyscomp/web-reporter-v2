@@ -1,5 +1,7 @@
+// ==================== IMPORTACIONES ====================
 import { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 
+// ==================== TIPOS ====================
 export type MySQLPool = Pool;
 export type MySQLConnection = PoolConnection;
 export type MySQLQueryResult<T> = T & RowDataPacket[];

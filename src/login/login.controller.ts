@@ -1,3 +1,4 @@
+// ==================== IMPORTACIONES ====================
 import { Controller, Post, Body, Res } from '@nestjs/common';
 import { LoginService } from './login.service';
 import { LoginDto } from './dto/login.dto';
@@ -7,11 +8,14 @@ import { loginUseCaseCompositor } from './compositors/use-case.compositors';
 import { getHttpStatusLogin } from './helpers/login.http-status';
 import { HttpResponse } from 'src/local-responses/classes/http-response';
 
+// ==================== CONTROLADOR: LoginController ====================
 @ApiTags('Auth')
 @Controller('login')
 export class LoginController {
+  // -------------------- Constructor / inyección de dependencias --------------------
   constructor(private readonly loginService: LoginService) { }
 
+  // -------------------- ENDPOINT POST /login/auth — inicio de sesión y emisión de token --------------------
   @Post('auth')
   @ApiOperation({ summary: 'Iniciar sesión para retorno de token' })
   @ApiBody({

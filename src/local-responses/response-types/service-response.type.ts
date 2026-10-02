@@ -1,3 +1,4 @@
+// ==================== TIPOS ====================
 export type TServiceResponse = {
   error?: boolean;
   data: any;

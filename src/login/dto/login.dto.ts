@@ -1,6 +1,8 @@
+// ==================== IMPORTACIONES ====================
 import { IsString, IsNotEmpty } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
+// ==================== DTO: LoginDto ====================
 export class LoginDto {
   @ApiProperty({ description: 'usuario para login', example: 'pedro perez' })
   @IsNotEmpty({ message: 'El usuario no puede estar vacío' })

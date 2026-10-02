@@ -1,3 +1,4 @@
+// ==================== IMPORTACIONES ====================
 import { MiddlewareConsumer, Module, RequestMethod } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { WarehousesModule } from './warehouses/warehouses.module';
@@ -7,16 +8,20 @@ import { AdminModule } from './admin/admin.module';
 import { ValidationMiddleware } from './middlewares/validation.middleware';
 import { JwtModule } from '@nestjs/jwt';
 import { CacheModule } from '@nestjs/cache-manager';
+// ==================== MÓDULO: AppModule ====================
 @Module({
   imports: [
+    // -------------------- Variables de entorno (.env) --------------------
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    // -------------------- Caché en memoria global --------------------
     CacheModule.register({
       isGlobal: true,
       ttl: 3600 * 1000,
       max: 500,
     }),
+    // -------------------- JWT --------------------
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -27,6 +32,7 @@ import { CacheModule } from '@nestjs/cache-manager';
       }),
       inject: [ConfigService],
     }),
+    // -------------------- Módulos de dominio --------------------
     AdminModule,
     WarehousesModule,
     ReportsModule,
@@ -34,6 +40,7 @@ import { CacheModule } from '@nestjs/cache-manager';
   ],
 })
 export class AppModule {
+  // -------------------- Registro del middleware de validación (excluye POST /login/auth) --------------------
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(ValidationMiddleware)

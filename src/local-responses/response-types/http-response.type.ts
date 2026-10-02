@@ -1,3 +1,4 @@
+// ==================== TIPOS ====================
 export type THttpResponseType = {
     response: any;
     status: number;
