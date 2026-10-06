@@ -85,5 +85,14 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "overrides": {
+    "brace-expansion@^1.1.0": "1.1.21",
+    "@nestjs/swagger": {
+      "js-yaml": "^5.4.3"
+    },
+    "@istanbuljs/load-nyc-config": {
+      "js-yaml": "^4.3.2"
+    }
   }
 }
